@@ -1,176 +1,180 @@
-import { 
-  Box, 
-  Typography, 
-  Container, 
-  Paper, 
-  Stack, 
-  IconButton,
-  Menu,
-  MenuItem,
-  Modal,
+// src/presentation/pages/HomePage.tsx
+import {
+  Box,
+  Typography,
+  Drawer,
   List,
   ListItem,
+  ListItemIcon,
   ListItemText,
+  Toolbar,
+  AppBar,
+  IconButton,
   Divider,
-  Button
+  Paper,
+  Stack,
 } from '@mui/material';
-import theme from '../../theme/theme';
 import MenuIcon from '@mui/icons-material/Menu';
-import LogoutIcon from '@mui/icons-material/Logout';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import PeopleIcon from '@mui/icons-material/People';
+import RouteIcon from '@mui/icons-material/AltRoute';
+import LogoutIcon from '@mui/icons-material/Logout';
+import theme from '../../theme/theme';
 import { useState } from 'react';
 import { useAuth } from '../../app/AuthContext';
 
-const HomePage = () => {
-  const { logout } = useAuth();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [openRepartidores, setOpenRepartidores] = useState(false);
-  const openMenu = Boolean(anchorEl);
+const drawerWidth = 240;
 
-  // Datos de ejemplo para repartidores
-  const repartidores = [
-    { nombre: 'Juan Pérez', estado: 'Activo', pedidos: 3 },
-    { nombre: 'María García', estado: 'Activo', pedidos: 2 },
-    { nombre: 'Carlos López', estado: 'En descanso', pedidos: 0 }
+export default function HomePage() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { logout } = useAuth();
+
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+
+  const menuItems = [
+    { text: 'Pedidos', icon: <AssignmentIcon sx={{ color: 'white' }} /> },
+    { text: 'Repartidores', icon: <PeopleIcon sx={{ color: 'white' }} /> },
+    { text: 'Rutas', icon: <RouteIcon sx={{ color: 'white' }} /> },
+    { text: 'Cerrar Sesión', icon: <LogoutIcon sx={{ color: 'white' }} />, action: logout },
   ];
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = () => {
-    logout();
-    handleMenuClose();
-  };
-
-  const handleOpenRepartidores = () => {
-    setOpenRepartidores(true);
-    handleMenuClose();
-  };
-
-  const handleCloseRepartidores = () => {
-    setOpenRepartidores(false);
-  };
+  const drawer = (
+    <Box sx={{ bgcolor: theme.palette.primary.main, height: '100%', color: 'white' }}>
+      {/* Logo */}
+      <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
+        <LocalShippingIcon sx={{ fontSize: 36, mr: 1, color: theme.palette.secondary.main }} />
+        <Typography variant="h6" fontWeight="bold">
+          Ncargos Ariel
+        </Typography>
+      </Box>
+      <Divider sx={{ bgcolor: 'rgba(255,255,255,0.2)' }} />
+      {/* Menú */}
+      <List>
+        {menuItems.map((item) => (
+          <ListItem
+            button
+            key={item.text}
+            onClick={item.action || (() => {})}
+            sx={{
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+            }}
+          >
+            <ListItemIcon>{item.icon}</ListItemIcon>
+            <ListItemText primary={item.text} sx={{ color: 'white' }} />
+          </ListItem>
+        ))}
+      </List>
+    </Box>
+  );
 
   return (
-    <Container maxWidth="lg">
-      {/* Menú de opciones */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-        <IconButton
-          size="large"
-          edge="start"
-          color="inherit"
-          aria-label="menu"
-          onClick={handleMenuOpen}
-        >
-          <MenuIcon fontSize="large" />
-        </IconButton>
-        
-        <Menu
-          anchorEl={anchorEl}
-          open={openMenu}
-          onClose={handleMenuClose}
-          MenuListProps={{
-            'aria-labelledby': 'basic-button',
+    <Box sx={{ display: 'flex' }}>
+      {/* Top Bar morada */}
+      <AppBar
+        position="fixed"
+        sx={{
+          bgcolor: theme.palette.primary.main,
+          color: 'white',
+          ml: { sm: `${drawerWidth}px` },
+          boxShadow: 1,
+        }}
+      >
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { sm: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" noWrap>
+            Dashboard
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      {/* Sidebar */}
+      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
+        {/* Mobile */}
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            display: { xs: 'block', sm: 'none' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
           }}
         >
-          <MenuItem onClick={handleOpenRepartidores}>
-            <PeopleIcon sx={{ mr: 1 }} />
-            Ver Repartidores
-          </MenuItem>
-          <Divider />
-          <MenuItem onClick={handleLogout}>
-            <LogoutIcon sx={{ mr: 1 }} />
-            Cerrar Sesión
-          </MenuItem>
-        </Menu>
+          {drawer}
+        </Drawer>
+        {/* Desktop */}
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
+          open
+        >
+          {drawer}
+        </Drawer>
       </Box>
 
-      {/* Contenido principal */}
-      <Box sx={{ my: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom color={theme.palette.primary.main}>
-          Panel de Control - Encargos Ariel
+      {/* Main Content */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          mt: 8,
+          bgcolor: theme.palette.background.default,
+          minHeight: '100vh',
+        }}
+      >
+        {/* Título */}
+        <Typography variant="h4" fontWeight="bold" sx={{ mb: 4 }}>
+          Panel de Control
         </Typography>
-        
-        <Stack direction="row" spacing={3} sx={{ mb: 4 }}>
-          <Paper sx={{ p: 2, flex: 1, bgcolor: theme.palette.secondary.light }}>
+
+        {/* Tarjetas métricas */}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} sx={{ mb: 4 }}>
+          <Paper sx={{ p: 3, flex: 1, bgcolor: theme.palette.secondary.light }}>
             <Typography variant="h6">Pedidos Hoy</Typography>
-            <Typography variant="h4">24</Typography>
+            <Typography variant="h4" fontWeight="bold">24</Typography>
           </Paper>
-          
-          <Paper sx={{ p: 2, flex: 1, bgcolor: theme.palette.secondary.light }}>
+          <Paper sx={{ p: 3, flex: 1, bgcolor: theme.palette.secondary.light }}>
             <Typography variant="h6">Repartidores Activos</Typography>
-            <Typography variant="h4">5</Typography>
+            <Typography variant="h4" fontWeight="bold">5</Typography>
           </Paper>
-          
-          <Paper sx={{ p: 2, flex: 1, bgcolor: theme.palette.secondary.light }}>
+          <Paper sx={{ p: 3, flex: 1, bgcolor: theme.palette.secondary.light }}>
             <Typography variant="h6">Pendientes</Typography>
-            <Typography variant="h4">8</Typography>
+            <Typography variant="h4" fontWeight="bold">8</Typography>
           </Paper>
         </Stack>
 
+        {/* Últimos pedidos */}
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Últimos Pedidos</Typography>
-          <Typography variant="body1">Lista de pedidos recientes...</Typography>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Últimos Pedidos
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Lista de pedidos recientes...
+          </Typography>
         </Paper>
 
+        {/* Monitoreo repartidores */}
         <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Repartidores</Typography>
-          <Typography variant="body1">Monitoreo de repartidores...</Typography>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Monitoreo de Repartidores
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Estado y ubicación de los repartidores...
+          </Typography>
         </Paper>
       </Box>
-
-      {/* Modal de Repartidores */}
-      <Modal
-        open={openRepartidores}
-        onClose={handleCloseRepartidores}
-        aria-labelledby="modal-repartidores"
-        aria-describedby="modal-lista-repartidores"
-      >
-        <Box sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 400,
-          bgcolor: 'background.paper',
-          boxShadow: 24,
-          p: 4,
-          borderRadius: 2
-        }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            <PeopleIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Lista de Repartidores
-          </Typography>
-          
-          <List>
-            {repartidores.map((repartidor, index) => (
-              <ListItem key={index}>
-                <ListItemText
-                  primary={repartidor.nombre}
-                  secondary={`${repartidor.estado} - Pedidos: ${repartidor.pedidos}`}
-                />
-              </ListItem>
-            ))}
-          </List>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-            <Button 
-              onClick={handleCloseRepartidores}
-              variant="contained"
-              color="primary"
-            >
-              Cerrar
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
-    </Container>
+    </Box>
   );
-};
-
-export default HomePage;
+}
