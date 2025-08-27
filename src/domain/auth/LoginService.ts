@@ -5,6 +5,6 @@ interface LoginPayload {
 }
 
 export const loginService = async (payload: LoginPayload) => {
-  const response = await axios.post('/usuarios/login', payload);
+  const response = await axios.post('/login', payload);
   return response.data; // Contiene: { success, token, usuario }
 };
