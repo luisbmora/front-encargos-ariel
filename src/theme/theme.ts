@@ -5,22 +5,22 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#6A1B9A', // Morado principal
-      dark: '#4A148C', // Morado oscuro
-      light: '#9C4DCC',
+      main: '#2E7D32', // Verde principal
+      dark: '#1B5E20', // Verde oscuro
+      light: '#66BB6A', // Verde claro
     },
     secondary: {
-      main: '#FFD600', // Amarillo principal
-      dark: '#FFC400',
-      light: '#FFECB3',
+      main: '#FF9800', // Naranja principal
+      dark: '#F57C00', // Naranja oscuro
+      light: '#FFB74D', // Naranja claro
     },
     background: {
-      default: '#F5F5F5', // Fondo gris claro
+      default: '#F4F9F4', // Fondo gris verdoso muy claro
       paper: '#FFFFFF',   // Fondo de tarjetas
     },
     text: {
-      primary: '#212121',
-      secondary: '#757575',
+      primary: '#1B1B1B', // Texto principal
+      secondary: '#4E6E4E', // Texto secundario con tinte verde
     },
   },
   typography: {

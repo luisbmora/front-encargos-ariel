@@ -1,21 +1,22 @@
 // src/hooks/useOrders.ts
 import { useState, useEffect } from 'react';
 import { orderApi } from '../api/orderApi';
-import { Order, CreateOrderRequest, UpdateOrderRequest, AssignOrderRequest } from '../types/order';
+import { Order, CreateOrderRequest, UpdateOrderRequest, OrderFilters } from '../types/order';
+import { AlertService } from '../utils/alerts';
 
-export const useOrders = () => {
+export const useOrders = (filters?: OrderFilters) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (customFilters?: OrderFilters) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await orderApi.getAll();
-      setOrders(data);
+      const data = await orderApi.getAll(customFilters || filters);
+      setOrders(data); // data ya es un array de Order
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al cargar pedidos');
+      setError(err.response?.data?.message || 'Error al cargar encargos');
     } finally {
       setLoading(false);
     }
@@ -25,11 +26,26 @@ export const useOrders = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Mostrar alerta de carga
+      AlertService.loading('Creando pedido...', 'Por favor espera mientras se procesa la información');
+      
       const newOrder = await orderApi.create(data);
       setOrders(prev => [...prev, newOrder]);
+      
+      // Cerrar loading y mostrar éxito
+      AlertService.close();
+      //await AlertService.crud.created('Pedido', `#${newOrder.id.slice(-6)}`);
+      
       return true;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al crear pedido');
+      const errorMessage = err.response?.data?.message || 'Error al crear pedido';
+      setError(errorMessage);
+      
+      // Cerrar loading y mostrar error
+      AlertService.close();
+      await AlertService.crud.operationError('crear', 'pedido', errorMessage);
+      
       return false;
     } finally {
       setLoading(false);
@@ -40,46 +56,78 @@ export const useOrders = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Mostrar alerta de carga
+      AlertService.loading('Actualizando pedido...', 'Guardando los cambios');
+      
       const updatedOrder = await orderApi.update(id, data);
-      setOrders(prev => 
-        prev.map(order => 
-          order.id === id ? updatedOrder : order
-        )
-      );
+      setOrders(prev => prev.map(order => order._id === id ? updatedOrder : order));
+      
+      // Cerrar loading y mostrar éxito
+      AlertService.close();
+      await AlertService.crud.updated('Pedido', `#${id.slice(-6)}`);
+      
       return true;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al actualizar pedido');
+      const errorMessage = err.response?.data?.message || 'Error al actualizar pedido';
+      setError(errorMessage);
+      
+      // Cerrar loading y mostrar error
+      AlertService.close();
+      await AlertService.crud.operationError('actualizar', 'pedido', errorMessage);
+      
       return false;
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteOrder = async (id: string): Promise<boolean> => {
+  const deleteOrder = async (id: string, orderName?: string): Promise<boolean> => {
     try {
+      // Mostrar confirmación antes de eliminar
+      const result = await AlertService.confirmDelete(
+        orderName || `Pedido #${id.slice(-6)}`,
+        'pedido'
+      );
+      
+      if (!result.isConfirmed) {
+        return false;
+      }
+      
       setLoading(true);
       setError(null);
+      
+      // Mostrar alerta de carga
+      AlertService.loading('Eliminando pedido...', 'Por favor espera');
+      
       await orderApi.delete(id);
-      setOrders(prev => prev.filter(order => order.id !== id));
+      setOrders(prev => prev.filter(order => order._id !== id));
+      
+      // Cerrar loading y mostrar éxito
+      AlertService.close();
+      await AlertService.crud.deleted('Pedido', orderName || `#${id.slice(-6)}`);
+      
       return true;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al eliminar pedido');
+      const errorMessage = err.response?.data?.message || 'Error al eliminar pedido';
+      setError(errorMessage);
+      
+      // Cerrar loading y mostrar error
+      AlertService.close();
+      await AlertService.crud.operationError('eliminar', 'pedido', errorMessage);
+      
       return false;
     } finally {
       setLoading(false);
     }
   };
 
-  const updateOrderStatus = async (id: string, status: Order['status']): Promise<boolean> => {
+  const updateOrderStatus = async (id: string, estado: Order['estado']): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
-      const updatedOrder = await orderApi.updateStatus(id, status);
-      setOrders(prev => 
-        prev.map(order => 
-          order.id === id ? updatedOrder : order
-        )
-      );
+      const updatedOrder = await orderApi.updateStatus(id, estado);
+      setOrders(prev => prev.map(order => order._id === id ? updatedOrder : order));
       return true;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al actualizar estado');
@@ -89,16 +137,12 @@ export const useOrders = () => {
     }
   };
 
-  const assignDelivery = async (data: AssignOrderRequest): Promise<boolean> => {
+  const assignDelivery = async (orderId: string, deliveryId: string): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
-      const updatedOrder = await orderApi.assignDelivery(data);
-      setOrders(prev => 
-        prev.map(order => 
-          order.id === data.orderId ? updatedOrder : order
-        )
-      );
+      const updatedOrder = await orderApi.assignDelivery(orderId, deliveryId);
+      setOrders(prev => prev.map(order => order._id === orderId ? updatedOrder : order));
       return true;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al asignar repartidor');
@@ -113,11 +157,7 @@ export const useOrders = () => {
       setLoading(true);
       setError(null);
       const updatedOrder = await orderApi.unassignDelivery(orderId);
-      setOrders(prev => 
-        prev.map(order => 
-          order.id === orderId ? updatedOrder : order
-        )
-      );
+      setOrders(prev => prev.map(order => order._id === orderId ? updatedOrder : order));
       return true;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al desasignar repartidor');

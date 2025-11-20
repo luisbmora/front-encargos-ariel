@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 
 class SocketService {
   private socket: Socket | null = null;
-  private readonly url = 'http://localhost:3000'; // Tu API URL
+  private readonly url = 'https://api-encargos-ariel.onrender.com'; // Tu API URL
 
   connect(): Socket {
     if (!this.socket) {

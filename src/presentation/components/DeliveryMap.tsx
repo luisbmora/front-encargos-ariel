@@ -26,25 +26,35 @@ import GoogleMap from './GoogleMap';
 import { useDeliveryTracking } from '../../hooks/useSocket';
 import { useDeliveries } from '../../hooks/useDeliveries';
 import { useOrders } from '../../hooks/useOrders';
+import { useAllActiveLocations } from '../../hooks/useRealTimeLocations';
 
 const DeliveryMap: React.FC = () => {
   const deliveries = useDeliveryTracking();
   const { deliveries: allDeliveries } = useDeliveries();
   const { orders, assignDelivery } = useOrders();
+  const { locations: realTimeLocations, loading: locationsLoading } = useAllActiveLocations(15000);
   
   const [selectedDelivery, setSelectedDelivery] = useState<any>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState('');
 
+  // Usar ubicaciones reales de la API si están disponibles
+  const activeLocations = realTimeLocations.length > 0 ? realTimeLocations : [];
+
   // Combinar datos de deliveries activos con su información completa
-  const enrichedDeliveries = deliveries.map(liveDelivery => {
-    const deliveryInfo = allDeliveries.find(d => d.id === liveDelivery.deliveryId);
-    const assignedOrders = orders.filter(o => o.deliveryId === liveDelivery.deliveryId && 
-      ['assigned', 'picked_up', 'in_transit'].includes(o.status));
+  const enrichedDeliveries = activeLocations.map(liveDelivery => {
+    const assignedOrders = orders.filter(o => o.repartidorAsignado === liveDelivery.id && 
+      ['asignado', 'en_camino'].includes(o.estado));
     
     return {
-      ...liveDelivery,
-      ...deliveryInfo,
+      deliveryId: liveDelivery.id,
+      nombre: liveDelivery.name,
+      telefono: liveDelivery.phone,
+      activo: liveDelivery.isActive,
+      location: liveDelivery.location,
+      precision: liveDelivery.precision,
+      timestamp: liveDelivery.timestamp,
+      estado: liveDelivery.status,
       isOccupied: assignedOrders.length > 0,
       currentOrders: assignedOrders,
     };
@@ -54,7 +64,7 @@ const DeliveryMap: React.FC = () => {
   const markers = enrichedDeliveries.map(delivery => ({
     id: delivery.deliveryId,
     position: delivery.location,
-    title: `${delivery.name || 'Repartidor'} - ${delivery.isOccupied ? 'Ocupado' : 'Libre'}`,
+    title: `${delivery.nombre || 'Repartidor'} - ${delivery.isOccupied ? 'Ocupado' : 'Libre'}`,
     icon: {
       url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
         <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -74,17 +84,14 @@ const DeliveryMap: React.FC = () => {
   const handleAssignOrder = async () => {
     if (!selectedDelivery || !selectedOrderId) return;
 
-    await assignDelivery({
-      orderId: selectedOrderId,
-      deliveryId: selectedDelivery.deliveryId,
-    });
-
+    await assignDelivery(selectedOrderId, selectedDelivery.deliveryId);
+    
     setAssignDialogOpen(false);
     setSelectedDelivery(null);
     setSelectedOrderId('');
   };
 
-  const availableOrders = orders.filter(o => o.status === 'pending');
+  const availableOrders = orders.filter(o => o.estado === 'pendiente');
 
   return (
     <Box>
@@ -150,7 +157,7 @@ const DeliveryMap: React.FC = () => {
       {/* Dialog para asignar pedidos */}
       <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
-          Repartidor: {selectedDelivery?.name}
+          Repartidor: {selectedDelivery?.nombre}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mb: 3 }}>
@@ -158,7 +165,10 @@ const DeliveryMap: React.FC = () => {
               Estado: {selectedDelivery?.isOccupied ? 'Ocupado' : 'Libre'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Vehículo: {selectedDelivery?.vehicleType} {selectedDelivery?.vehiclePlate && `(${selectedDelivery.vehiclePlate})`}
+              Teléfono: {selectedDelivery?.telefono}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Vehículo: {selectedDelivery?.tipoVehiculo} {selectedDelivery?.placaVehiculo && `(${selectedDelivery.placaVehiculo})`}
             </Typography>
           </Box>
 
@@ -166,17 +176,17 @@ const DeliveryMap: React.FC = () => {
           {selectedDelivery?.currentOrders?.length > 0 && (
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Pedidos Actuales
+                Encargos Actuales
               </Typography>
               <List dense>
                 {selectedDelivery.currentOrders.map((order: any) => (
-                  <ListItem key={order.id}>
+                  <ListItem key={order._id}>
                     <ListItemIcon>
                       <AssignmentIcon />
                     </ListItemIcon>
                     <ListItemText
-                      primary={`Pedido #${order.id.slice(-6)}`}
-                      secondary={`${order.customerName} - ${order.status}`}
+                      primary={`${order.nombre}`}
+                      secondary={`${order.clienteNombre} - ${order.estado}`}
                     />
                   </ListItem>
                 ))}
@@ -184,22 +194,22 @@ const DeliveryMap: React.FC = () => {
             </Box>
           )}
 
-          {/* Asignar nuevo pedido */}
+          {/* Asignar nuevo encargo */}
           {availableOrders.length > 0 && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                Asignar Nuevo Pedido
+                Asignar Nuevo Encargo
               </Typography>
               <FormControl fullWidth>
-                <InputLabel>Seleccionar Pedido</InputLabel>
+                <InputLabel>Seleccionar Encargo</InputLabel>
                 <Select
                   value={selectedOrderId}
                   onChange={(e) => setSelectedOrderId(e.target.value)}
-                  label="Seleccionar Pedido"
+                  label="Seleccionar Encargo"
                 >
                   {availableOrders.map((order) => (
-                    <MenuItem key={order.id} value={order.id}>
-                      #{order.id.slice(-6)} - {order.customerName} (${order.totalAmount.toFixed(2)})
+                    <MenuItem key={order._id} value={order._id}>
+                      {order.nombre} - {order.clienteNombre} (${order.precio.toFixed(2)})
                     </MenuItem>
                   ))}
                 </Select>
@@ -209,7 +219,7 @@ const DeliveryMap: React.FC = () => {
 
           {availableOrders.length === 0 && (
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-              No hay pedidos pendientes para asignar
+              No hay encargos pendientes para asignar
             </Typography>
           )}
         </DialogContent>
@@ -223,7 +233,7 @@ const DeliveryMap: React.FC = () => {
               variant="contained"
               disabled={!selectedOrderId}
             >
-              Asignar Pedido
+              Asignar Encargo
             </Button>
           )}
         </DialogActions>

@@ -29,7 +29,10 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any>(null);
   const [error, setError] = useState<string>("");
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const markersRef = useRef<any[]>([]);
   const [googleMaps, setGoogleMaps] = useState<any>(null);
 
@@ -45,7 +48,15 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
           setCurrentLocation(location);
         },
         (error) => {
-          console.warn('Error obteniendo ubicación:', error);
+          console.warn("Error obteniendo ubicación:", error);
+          // Mostrar mensaje más específico según el tipo de error
+          if (error.code === 1) {
+            console.log("ℹ️ Usuario negó el acceso a la ubicación");
+          } else if (error.code === 2) {
+            console.log("ℹ️ Ubicación no disponible");
+          } else if (error.code === 3) {
+            console.log("ℹ️ Timeout obteniendo ubicación");
+          }
           setCurrentLocation(center);
         },
         {
@@ -91,13 +102,13 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
             new google.maps.Marker({
               position: currentLocation,
               map: mapInstance,
-              title: 'Tu ubicación',
+              title: "Tu ubicación",
               icon: {
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 8,
-                fillColor: '#4285F4',
+                fillColor: "#4285F4",
                 fillOpacity: 1,
-                strokeColor: 'white',
+                strokeColor: "white",
                 strokeWeight: 2,
               },
             });
@@ -136,7 +147,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 
       // Agregar click listener si existe
       if (markerData.onClick) {
-        marker.addListener('click', markerData.onClick);
+        marker.addListener("click", markerData.onClick);
       }
 
       markersRef.current.push(marker);

@@ -1,66 +1,74 @@
 // src/api/orderApi.ts
 import axios from './axios';
-import { Order, CreateOrderRequest, UpdateOrderRequest, AssignOrderRequest } from '../types/order';
+import { Order, CreateOrderRequest, UpdateOrderRequest, OrderFilters } from '../types/order';
 
 export const orderApi = {
-  // Obtener todos los pedidos
-  getAll: async (): Promise<Order[]> => {
-    const response = await axios.get('/orders');
-    return response.data;
+  // Obtener todos los encargos con filtros opcionales
+  getAll: async (filters?: OrderFilters): Promise<Order[]> => {
+    const params = new URLSearchParams();
+    
+    if (filters) {
+      if (filters.estado) params.append('estado', filters.estado);
+      if (filters.repartidorAsignado) params.append('repartidorAsignado', filters.repartidorAsignado);
+      if (filters.prioridad) params.append('prioridad', filters.prioridad);
+      if (filters.fechaDesde) params.append('fechaDesde', filters.fechaDesde.toISOString());
+      if (filters.fechaHasta) params.append('fechaHasta', filters.fechaHasta.toISOString());
+    }
+    
+    const response = await axios.get(`/encargos?${params.toString()}`);
+    return response.data.data; // <-- solo el array de encargos
   },
 
-  // Obtener pedido por ID
+  // Obtener estadísticas de encargos
+  getStats: async (): Promise<any> => {
+    const response = await axios.get('/encargos/estadisticas');
+    return response.data.data;
+  },
+
+  // Obtener encargo por ID
   getById: async (id: string): Promise<Order> => {
-    const response = await axios.get(`/orders/${id}`);
-    return response.data;
+    const response = await axios.get(`/encargos/${id}`);
+    return response.data.data;
   },
 
-  // Crear nuevo pedido
+  // Obtener encargos por repartidor
+  getByDelivery: async (deliveryId: string): Promise<Order[]> => {
+    const response = await axios.get(`/encargos/repartidor/${deliveryId}`);
+    return response.data.data;
+  },
+
+  // Crear nuevo encargo
   create: async (data: CreateOrderRequest): Promise<Order> => {
-    const response = await axios.post('/orders', data);
-    return response.data;
+    const response = await axios.post('/encargos', data);
+    return response.data.data;
   },
 
-  // Actualizar pedido
+  // Actualizar encargo
   update: async (id: string, data: UpdateOrderRequest): Promise<Order> => {
-    const response = await axios.put(`/orders/${id}`, data);
-    return response.data;
+    const response = await axios.put(`/encargos/${id}`, data);
+    return response.data.data;
   },
 
-  // Eliminar pedido
+  // Eliminar encargo
   delete: async (id: string): Promise<void> => {
-    await axios.delete(`/orders/${id}`);
+    await axios.delete(`/encargos/${id}`);
   },
 
-  // Actualizar estado del pedido
-  updateStatus: async (id: string, status: Order['status']): Promise<Order> => {
-    const response = await axios.patch(`/orders/${id}/status`, { status });
-    return response.data;
+  // Cambiar estado del encargo
+  updateStatus: async (id: string, estado: Order['estado']): Promise<Order> => {
+    const response = await axios.put(`/encargos/${id}/estado`, { estado });
+    return response.data.data;
   },
 
-  // Asignar repartidor a pedido
-  assignDelivery: async (data: AssignOrderRequest): Promise<Order> => {
-    const response = await axios.post(`/orders/${data.orderId}/assign`, {
-      deliveryId: data.deliveryId,
-    });
-    return response.data;
+  // Asignar repartidor a encargo
+  assignDelivery: async (orderId: string, deliveryId: string): Promise<Order> => {
+    const response = await axios.post(`/encargos/${orderId}/asignar-repartidor`, { repartidorId: deliveryId });
+    return response.data.data;
   },
 
   // Desasignar repartidor
   unassignDelivery: async (orderId: string): Promise<Order> => {
-    const response = await axios.delete(`/orders/${orderId}/assign`);
-    return response.data;
-  },
-
-  // Obtener pedidos por estado
-  getByStatus: async (status: Order['status']): Promise<Order[]> => {
-    const response = await axios.get(`/orders?status=${status}`);
-    return response.data;
-  },
-
-  // Obtener pedidos de un repartidor
-  getByDelivery: async (deliveryId: string): Promise<Order[]> => {
-    const response = await axios.get(`/orders?deliveryId=${deliveryId}`);
-    return response.data;
+    const response = await axios.delete(`/encargos/${orderId}/desasignar-repartidor`);
+    return response.data.data;
   },
 };

@@ -4,43 +4,50 @@ import { Delivery, CreateDeliveryRequest, UpdateDeliveryRequest } from '../types
 
 export const deliveryApi = {
   // Obtener todos los repartidores
-  getAll: async (): Promise<Delivery[]> => {
-    const response = await axios.get('/deliveries');
-    return response.data;
+  getAll: async (activo?: boolean): Promise<Delivery[]> => {
+    const params = activo !== undefined ? { activo } : {};
+    const response = await axios.get('/repartidores', { params });
+    //console.log("API /repartidores ->", response.data);
+    return response.data.data;
   },
 
   // Obtener repartidor por ID
   getById: async (id: string): Promise<Delivery> => {
-    const response = await axios.get(`/deliveries/${id}`);
-    return response.data;
+    const response = await axios.get(`/repartidores/${id}`);
+    return response.data.data;
   },
 
   // Crear nuevo repartidor
   create: async (data: CreateDeliveryRequest): Promise<Delivery> => {
-    const response = await axios.post('/deliveries', data);
-    return response.data;
+    const response = await axios.post('/repartidores', data);
+    return response.data.data;
   },
 
   // Actualizar repartidor
   update: async (id: string, data: UpdateDeliveryRequest): Promise<Delivery> => {
-    const response = await axios.put(`/deliveries/${id}`, data);
-    return response.data;
+    const response = await axios.put(`/repartidores/${id}`, data);
+    return response.data.data;
   },
 
   // Eliminar repartidor
   delete: async (id: string): Promise<void> => {
-    await axios.delete(`/deliveries/${id}`);
+    await axios.delete(`/repartidores/${id}`);
   },
 
-  // Activar/Desactivar repartidor
-  toggleStatus: async (id: string): Promise<Delivery> => {
-    const response = await axios.patch(`/deliveries/${id}/toggle-status`);
-    return response.data;
+  // Asignar pedido a repartidor
+  assignOrder: async (id: string, pedidoId: string): Promise<Delivery> => {
+    const response = await axios.post(`/repartidores/${id}/asignar-pedido`, { pedidoId });
+    return response.data.data;
   },
 
-  // Obtener repartidores activos
-  getActive: async (): Promise<Delivery[]> => {
-    const response = await axios.get('/deliveries?status=active');
-    return response.data;
+  // Desasignar pedido de repartidor
+  unassignOrder: async (id: string, pedidoId: string): Promise<void> => {
+    await axios.delete(`/repartidores/${id}/pedidos/${pedidoId}`);
+  },
+
+  // Actualizar token de Firebase
+  updateFirebaseToken: async (id: string, firebaseToken: string): Promise<Delivery> => {
+    const response = await axios.put(`/repartidores/${id}/firebase-token`, { firebaseToken });
+    return response.data.data;
   },
 };

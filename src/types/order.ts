@@ -1,63 +1,60 @@
 // src/types/order.ts
 export interface Order {
-  id: string;
-  customerName: string;
-  customerPhone: string;
-  customerEmail?: string;
-  pickupAddress: string;
-  deliveryAddress: string;
-  pickupLocation: {
-    lat: number;
-    lng: number;
+  _id: string;
+  nombre: string;
+  descripcion?: string;
+  direccionRecogida: string;
+  direccionEntrega: string;
+  clienteNombre: string;
+  clienteTelefono: string;
+  precio: number;
+  estado: 'pendiente' | 'asignado' | 'en_camino' | 'entregado' | 'cancelado';
+  repartidorAsignado?: string;
+  fechaCreacion: Date;
+  fechaAsignacion?: Date;
+  fechaEntrega?: Date;
+  notas?: string;
+  prioridad: 'baja' | 'media' | 'alta' | 'urgente';
+  repartidorInfo?: {
+    nombre: string;
+    telefono: string;
   };
-  deliveryLocation: {
-    lat: number;
-    lng: number;
-  };
-  items: OrderItem[];
-  totalAmount: number;
-  status: 'pending' | 'assigned' | 'picked_up' | 'in_transit' | 'delivered' | 'cancelled';
-  deliveryId?: string; // ID del repartidor asignado
-  deliveryName?: string; // Nombre del repartidor
-  estimatedDeliveryTime?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface OrderItem {
-  id: string;
-  name: string;
-  quantity: number;
-  price: number;
-  notes?: string;
 }
 
 export interface CreateOrderRequest {
-  customerName: string;
-  customerPhone: string;
-  customerEmail?: string;
-  pickupAddress: string;
-  deliveryAddress: string;
-  pickupLocation: {
-    lat: number;
-    lng: number;
-  };
-  deliveryLocation: {
-    lat: number;
-    lng: number;
-  };
-  items: Omit<OrderItem, 'id'>[];
-  notes?: string;
+  nombre: string;
+  descripcion?: string;
+  direccionRecogida: string;
+  direccionEntrega: string;
+  clienteNombre: string;
+  clienteTelefono: string;
+  precio: number;
+  notas?: string;
+  prioridad?: 'baja' | 'media' | 'alta' | 'urgente';
 }
 
-export interface UpdateOrderRequest extends Partial<CreateOrderRequest> {
-  status?: Order['status'];
-  deliveryId?: string;
-  estimatedDeliveryTime?: string;
+export interface UpdateOrderRequest {
+  nombre?: string;
+  descripcion?: string;
+  direccionRecogida?: string;
+  direccionEntrega?: string;
+  clienteNombre?: string;
+  clienteTelefono?: string;
+  precio?: number;
+  estado?: 'pendiente' | 'asignado' | 'en_camino' | 'entregado' | 'cancelado';
+  notas?: string;
+  prioridad?: 'baja' | 'media' | 'alta' | 'urgente';
 }
 
 export interface AssignOrderRequest {
   orderId: string;
   deliveryId: string;
+}
+
+export interface OrderFilters {
+  estado?: string;
+  repartidorAsignado?: string;
+  prioridad?: string;
+  fechaDesde?: Date;
+  fechaHasta?: Date;
 }

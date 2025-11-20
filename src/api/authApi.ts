@@ -5,7 +5,7 @@ export const loginAPI = async (email: string, password: string) => {
   try {
     console.log('[DEBUG] URL completa:', `${axiosInstance.defaults.baseURL}/usuarios/login`);
     
-    const response = await axiosInstance.post('/login', {
+    const response = await axiosInstance.post('/auth/login', {
       email,
       password
     }, {

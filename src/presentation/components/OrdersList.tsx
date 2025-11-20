@@ -16,23 +16,25 @@ import { useOrderUpdates } from '../../hooks/useSocket';
 const OrdersList: React.FC = () => {
   const orders = useOrderUpdates();
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'warning';
-      case 'in_progress': return 'info';
-      case 'delivered': return 'success';
-      case 'cancelled': return 'error';
+  const getStatusColor = (estado: string) => {
+    switch (estado) {
+      case 'pendiente': return 'warning';
+      case 'asignado': return 'info';
+      case 'en_camino': return 'primary';
+      case 'entregado': return 'success';
+      case 'cancelado': return 'error';
       default: return 'default';
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'pending': return 'Pendiente';
-      case 'in_progress': return 'En Progreso';
-      case 'delivered': return 'Entregado';
-      case 'cancelled': return 'Cancelado';
-      default: return status;
+  const getStatusText = (estado: string) => {
+    switch (estado) {
+      case 'pendiente': return 'Pendiente';
+      case 'asignado': return 'Asignado';
+      case 'en_camino': return 'En Camino';
+      case 'entregado': return 'Entregado';
+      case 'cancelado': return 'Cancelado';
+      default: return estado;
     }
   };
 
@@ -48,29 +50,33 @@ const OrdersList: React.FC = () => {
         </Typography>
       ) : (
         <List>
-          {orders.slice(0, 5).map((order) => (
-            <ListItem key={order.id} divider>
+          {orders
+            .slice() // copiar array para evitar mutación
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // ordenar por fecha descendente
+            .slice(0, 5) // mostrar solo los últimos 5
+            .map((order) => (
+            <ListItem key={order._id} divider>
               <ListItemAvatar>
                 <Avatar>
                   <AssignmentIcon />
                 </Avatar>
               </ListItemAvatar>
               <ListItemText
-                primary={`Pedido #${order.id}`}
+                primary={`Pedido #${order._id}`}
                 secondary={
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Cliente: {order.customerName || 'Sin nombre'}
+                      Cliente: {order.clienteNombre || 'Sin nombre'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Dirección: {order.address || 'Sin dirección'}
+                      Dirección: {order.direccionEntrega || 'Sin dirección'}
                     </Typography>
                   </Box>
                 }
               />
               <Chip
-                label={getStatusText(order.status)}
-                color={getStatusColor(order.status) as any}
+                label={getStatusText(order.estado)}
+                color={getStatusColor(order.estado) as any}
                 size="small"
               />
             </ListItem>

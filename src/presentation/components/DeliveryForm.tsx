@@ -7,21 +7,21 @@ import {
   DialogActions,
   TextField,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Box,
   Alert,
+  FormControlLabel,
+  Switch,
+  Typography,
 } from '@mui/material';
 import { Delivery, CreateDeliveryRequest } from '../../types/delivery';
 
 interface DeliveryFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateDeliveryRequest) => Promise<boolean>;
+  onSubmit: (data: CreateDeliveryRequest | any) => Promise<boolean>;
   delivery?: Delivery | null;
   loading?: boolean;
+  isEdit?: boolean;
 }
 
 const DeliveryForm: React.FC<DeliveryFormProps> = ({
@@ -30,42 +30,46 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
   onSubmit,
   delivery,
   loading = false,
+  isEdit = false,
 }) => {
-  const [formData, setFormData] = useState<CreateDeliveryRequest>({
-    name: '',
+  const [formData, setFormData] = useState<any>({
+    nombre: '',
+    telefono: '',
     email: '',
-    phone: '',
-    vehicleType: 'motorcycle',
-    vehiclePlate: '',
+    password: '',
+    //activo: true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isPasswordField, setIsPasswordField] = useState(!isEdit);
 
   useEffect(() => {
     if (delivery) {
       setFormData({
-        name: delivery.name,
+        nombre: delivery.nombre,
+        telefono: delivery.telefono,
         email: delivery.email,
-        phone: delivery.phone,
-        vehicleType: delivery.vehicleType,
-        vehiclePlate: delivery.vehiclePlate || '',
+        password: '', // No mostramos la contraseña actual por seguridad
+        //activo: delivery.activo,
       });
+      setIsPasswordField(false);
     } else {
       setFormData({
-        name: '',
+        nombre: '',
+        telefono: '',
         email: '',
-        phone: '',
-        vehicleType: 'motorcycle',
-        vehiclePlate: '',
+        password: '',
+        //activo: true,
       });
+      setIsPasswordField(true);
     }
     setErrors({});
-  }, [delivery, open]);
+  }, [delivery, open, isEdit]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'El nombre es requerido';
+    if (!formData.nombre.trim()) {
+      newErrors.nombre = 'El nombre es requerido';
     }
 
     if (!formData.email.trim()) {
@@ -74,12 +78,14 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
       newErrors.email = 'Email inválido';
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'El teléfono es requerido';
+    if (!formData.telefono.trim()) {
+      newErrors.telefono = 'El teléfono es requerido';
     }
 
-    if ((formData.vehicleType === 'motorcycle' || formData.vehicleType === 'car') && !formData.vehiclePlate?.trim()) {
-      newErrors.vehiclePlate = 'La placa es requerida para este tipo de vehículo';
+    if (!isEdit && !formData.password.trim()) {
+      newErrors.password = 'La contraseña es requerida';
+    } else if (!isEdit && formData.password.length < 6) {
+      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
 
     setErrors(newErrors);
@@ -91,19 +97,26 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
     
     if (!validateForm()) return;
 
-    const success = await onSubmit(formData);
+    // Para edición, si no se cambió la contraseña, no la enviamos
+    const submitData = isEdit && !formData.password 
+      ? { ...formData, password: undefined } 
+      : formData;
+
+    const success = await onSubmit(submitData);
     if (success) {
       onClose();
     }
   };
 
-  const handleChange = (field: keyof CreateDeliveryRequest) => (
-    e: React.ChangeEvent<HTMLInputElement | { value: unknown }>
+  const handleChange = (field: string) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | any
   ) => {
-    setFormData(prev => ({
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    
+    setFormData((prev: typeof formData) => ({
       ...prev,
-      [field]: e.target.value,
-    }));
+      [field]: value,
+    })); 
     
     // Limpiar error del campo cuando el usuario empiece a escribir
     if (errors[field]) {
@@ -114,11 +127,11 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
     }
   };
 
-  const vehicleTypeLabels = {
-    motorcycle: 'Motocicleta',
-    bicycle: 'Bicicleta',
-    car: 'Automóvil',
-    walking: 'A pie',
+  const togglePasswordField = () => {
+    setIsPasswordField(!isPasswordField);
+    if (!isPasswordField) {
+      setFormData((prev: any) => ({ ...prev, password: '' }));
+    }
   };
 
   return (
@@ -132,10 +145,10 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField
               label="Nombre completo"
-              value={formData.name}
-              onChange={handleChange('name')}
-              error={!!errors.name}
-              helperText={errors.name}
+              value={formData.nombre}
+              onChange={handleChange('nombre')}
+              error={!!errors.nombre}
+              helperText={errors.nombre}
               fullWidth
               required
             />
@@ -153,39 +166,49 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
 
             <TextField
               label="Teléfono"
-              value={formData.phone}
-              onChange={handleChange('phone')}
-              error={!!errors.phone}
-              helperText={errors.phone}
+              value={formData.telefono}
+              onChange={handleChange('telefono')}
+              error={!!errors.telefono}
+              helperText={errors.telefono}
               fullWidth
               required
             />
 
-            <FormControl fullWidth required>
-              <InputLabel>Tipo de vehículo</InputLabel>
-              <Select
-                value={formData.vehicleType}
-                onChange={handleChange('vehicleType')}
-                label="Tipo de vehículo"
-              >
-                {Object.entries(vehicleTypeLabels).map(([value, label]) => (
-                  <MenuItem key={value} value={value}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {(formData.vehicleType === 'motorcycle' || formData.vehicleType === 'car') && (
-              <TextField
-                label="Placa del vehículo"
-                value={formData.vehiclePlate}
-                onChange={handleChange('vehiclePlate')}
-                error={!!errors.vehiclePlate}
-                helperText={errors.vehiclePlate}
-                fullWidth
-                required
+            {isEdit && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.activo}
+                    onChange={handleChange('activo')}
+                    color="primary"
+                  />
+                }
+                label="Activo"
               />
+            )}
+
+            {isPasswordField && (
+              <TextField
+                label="Contraseña"
+                type="password"
+                value={formData.password}
+                onChange={handleChange('password')}
+                error={!!errors.password}
+                helperText={errors.password || (isEdit ? 'Dejar en blanco para mantener la contraseña actual' : 'Mínimo 6 caracteres')}
+                fullWidth
+                required={!isEdit}
+              />
+            )}
+
+            {isEdit && (
+              <Button 
+                onClick={togglePasswordField} 
+                variant="outlined" 
+                size="small"
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                {isPasswordField ? 'Cancelar cambio de contraseña' : 'Cambiar contraseña'}
+              </Button>
             )}
           </Box>
         </DialogContent>

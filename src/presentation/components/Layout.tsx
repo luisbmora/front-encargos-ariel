@@ -21,10 +21,12 @@ import PeopleIcon from '@mui/icons-material/People';
 import RouteIcon from '@mui/icons-material/AltRoute';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import WifiIcon from '@mui/icons-material/Wifi';
 import theme from '../../theme/theme';
 import { useAuth } from '../../app/AuthContext';
 import { useNavigation } from '../../app/NavigationContext';
 import { useSocket } from '../../hooks/useSocket';
+import TokenExpiryWarning from './TokenExpiryWarning';
 
 const drawerWidth = 240;
 
@@ -188,6 +190,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       >
         {children}
       </Box>
+
+      {/* Token Expiry Warning */}
+      <TokenExpiryWarning />
     </Box>
   );
 };

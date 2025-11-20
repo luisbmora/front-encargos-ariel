@@ -1,17 +1,31 @@
-// src/app/PrivateRouters.tsx
-import React from 'react'; // Añade esta importación
-import { Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
-const PrivateRoute = ({ children }: { children: React.ReactNode }) => { // Cambia JSX.Element por React.ReactNode
-  const { usuario } = useAuth();
-  const location = useLocation();
+interface PrivateRouteProps {
+  children: React.ReactElement;
+}
 
-  if (!usuario) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
+  const { usuario, isLoading } = useAuth();
+
+  // Mostrar loading mientras se verifica la autenticación
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '18px'
+      }}>
+        Verificando sesión...
+      </div>
+    );
   }
 
-  return children;
+  // Si no hay usuario después de verificar, redirigir al login
+  return usuario ? children : <Navigate to="/login" replace />;
 };
 
 export default PrivateRoute;
