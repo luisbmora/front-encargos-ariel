@@ -1,237 +1,130 @@
-// src/presentation/components/BasicMap.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Loader } from "@googlemaps/js-api-loader";
-import { Box, Alert, Typography, Chip, Paper } from "@mui/material";
+import { Box, Alert } from "@mui/material";
 
-const BasicMap: React.FC = () => {
+interface MapDelivery {
+  id: string;
+  name: string;
+  location: { lat: number; lng: number };
+  isActive: boolean;
+  phone?: string;
+}
+
+interface MapOrder {
+  id: string;
+  title: string;
+  location?: { lat: number; lng: number };
+  state: string;
+}
+
+interface BasicMapProps {
+  deliveries: MapDelivery[];
+  orders: MapOrder[];
+}
+
+const BasicMap: React.FC<BasicMapProps> = ({ deliveries, orders }) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<any>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
   const [error, setError] = useState<string>("");
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-
-  // Repartidores de ejemplo
-  const deliveries = [
-    {
-      id: '1',
-      name: 'David M',
-      phone: '+57 300 123 4567',
-      isActive: true,
-      location: { lat: 20.361244, lng: -102.029551 }, // México
-    },
-    {
-      id: '2',
-      name: 'Carlos R',
-      phone: '+57 300 123 4568',
-      isActive: true,
-      location: { lat: 20.365000, lng: -102.025000 },
-    },
-    {
-      id: '3',
-      name: 'Ana L',
-      phone: '+57 300 123 4569',
-      isActive: false,
-      location: { lat: 20.355000, lng: -102.035000 },
-    },
-  ];
-
-  useEffect(() => {
-    // Obtener ubicación del usuario
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        (error) => {
-          console.warn('Error obteniendo ubicación:', error);
-          // Usar ubicación por defecto
-          setUserLocation({ lat: 20.361244, lng: -102.029551 });
-        }
-      );
-    } else {
-      setUserLocation({ lat: 20.361244, lng: -102.029551 });
-    }
-  }, []);
+  const markersRef = useRef<google.maps.Marker[]>([]);
 
   useEffect(() => {
     const initMap = async () => {
-      if (!userLocation) return;
-
       try {
         const loader = new Loader({
-          apiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyArRZ1oMeBMdwpLIB3hssEt_99ceKdzV5s",
+          apiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyArRZ1oMeBMdwpLIB3hssEt_99ceKdzV5s", // Tu API Key
           version: "weekly",
           libraries: ["places"],
         });
 
         const google = await loader.load();
 
-        if (mapRef.current) {
+        if (mapRef.current && !map) {
           const mapInstance = new google.maps.Map(mapRef.current, {
-            center: userLocation,
-            zoom: 14,
+            center: { lat: 20.659698, lng: -103.349609 }, // Centro default
+            zoom: 13,
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: false,
+            zoomControl: true,
+            zoomControlOptions: {
+                position: google.maps.ControlPosition.RIGHT_CENTER
+            }
           });
-
           setMap(mapInstance);
-
-          // Agregar marcador de ubicación del usuario
-          new google.maps.Marker({
-            position: userLocation,
-            map: mapInstance,
-            title: 'Tu ubicación',
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 10,
-              fillColor: "#4285F4",
-              fillOpacity: 1,
-              strokeColor: "white",
-              strokeWeight: 3,
-            },
-          });
-
-          // Agregar marcadores de repartidores
-          deliveries.forEach((delivery) => {
-            const marker = new google.maps.Marker({
-              position: delivery.location,
-              map: mapInstance,
-              title: `${delivery.name} - ${delivery.isActive ? 'Activo' : 'Inactivo'}`,
-              icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 8,
-                fillColor: delivery.isActive ? "#4caf50" : "#f44336",
-                fillOpacity: 1,
-                strokeColor: "white",
-                strokeWeight: 2,
-              },
-            });
-
-            // Agregar info window
-            const infoWindow = new google.maps.InfoWindow({
-              content: `
-                <div>
-                  <h3>${delivery.name}</h3>
-                  <p>📞 ${delivery.phone}</p>
-                  <p>Estado: ${delivery.isActive ? 'Activo' : 'Inactivo'}</p>
-                </div>
-              `,
-            });
-
-            marker.addListener('click', () => {
-              infoWindow.open(mapInstance, marker);
-            });
-          });
         }
       } catch (err) {
         console.error("Error cargando Google Maps:", err);
-        setError("Error cargando el mapa. Verifica la conexión a internet.");
+        setError("Error cargando el mapa.");
       }
     };
 
     initMap();
-  }, [userLocation]);
+  }, [map]);
 
-  if (error) {
-    return (
-      <Alert severity="error" sx={{ height: '400px' }}>
-        {error}
-      </Alert>
-    );
-  }
+  useEffect(() => {
+    if (!map || !window.google) return;
 
-  return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h6">
-          🗺️ Mapa de Repartidores
-        </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Chip 
-            label={`${deliveries.length} total`} 
-            color="primary" 
-            size="small" 
-          />
-          <Chip 
-            label={`${deliveries.filter(d => d.isActive).length} activos`} 
-            color="success" 
-            size="small" 
-          />
-        </Box>
-      </Box>
+    // Limpiar marcadores anteriores
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
 
-      {/* Leyenda */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#4caf50' }} />
-          <Typography variant="body2">Activo</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#f44336' }} />
-          <Typography variant="body2">Inactivo</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#2196f3' }} />
-          <Typography variant="body2">Tu ubicación</Typography>
-        </Box>
-      </Box>
+    // 1. Pintar Repartidores
+    deliveries.forEach((d) => {
+        // Validación estricta de coordenadas
+        if (!d.location || typeof d.location.lat !== 'number' || typeof d.location.lng !== 'number') return;
+        if (d.location.lat === 0 && d.location.lng === 0) return;
 
-      {/* Lista de repartidores */}
-      <Box sx={{ 
-        display: 'flex', 
-        flexWrap: 'wrap', 
-        gap: 2, 
-        mb: 2,
-        '& > *': {
-          flex: '1 1 280px',
-          maxWidth: '350px',
-        }
-      }}>
-        {deliveries.map((delivery) => (
-          <Paper key={delivery.id} sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Typography variant="subtitle1" fontWeight="bold">
-                🚚 {delivery.name}
-              </Typography>
-              <Chip
-                label={delivery.isActive ? 'Activo' : 'Inactivo'}
-                color={delivery.isActive ? 'success' : 'error'}
-                size="small"
-                sx={{ ml: 1 }}
-              />
-            </Box>
-            <Typography variant="body2" color="text.secondary">
-              📞 {delivery.phone}
-            </Typography>
-          </Paper>
-        ))}
-      </Box>
-      
-      {/* Mapa */}
-      <Box
-        ref={mapRef}
-        sx={{
-          width: "100%",
-          height: "500px",
-          borderRadius: 1,
-          overflow: "hidden",
-          border: '1px solid #e0e0e0',
-        }}
-      />
+        const marker = new google.maps.Marker({
+            position: d.location,
+            map: map,
+            title: d.name,
+            icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 8,
+                fillColor: d.isActive ? "#4caf50" : "#f44336",
+                fillOpacity: 1,
+                strokeColor: "white",
+                strokeWeight: 2,
+            },
+        });
 
-      {/* Info */}
-      <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          💡 <strong>Tip:</strong> Haz clic en los marcadores del mapa para ver más información de cada repartidor.
-        </Typography>
-      </Box>
-    </Box>
-  );
+        const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="color:black; font-weight:bold;">${d.name}</div><div style="color:#555;">${d.phone || ''}</div>`
+        });
+        marker.addListener('click', () => infoWindow.open(map, marker));
+
+        markersRef.current.push(marker);
+    });
+
+    // 2. Pintar Ordenes
+    orders.forEach((o) => {
+        if (!o.location || typeof o.location.lat !== 'number') return;
+        if (o.location.lat === 0 && o.location.lng === 0) return;
+
+        const marker = new google.maps.Marker({
+            position: o.location,
+            map: map,
+            title: o.title,
+            zIndex: 1, 
+            icon: {
+                 path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+                 fillColor: "#1976d2",
+                 fillOpacity: 1,
+                 strokeWeight: 1,
+                 strokeColor: "#ffffff",
+                 scale: 1.5,
+                 anchor: new google.maps.Point(12, 24),
+            }
+        });
+        markersRef.current.push(marker);
+    });
+
+  }, [map, deliveries, orders]);
+
+  if (error) return <Alert severity="error">{error}</Alert>;
+
+  return <Box ref={mapRef} sx={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0, zIndex: 0 }} />;
 };
 
 export default BasicMap;
