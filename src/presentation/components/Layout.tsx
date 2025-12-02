@@ -93,10 +93,10 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, page: 'dashboard' as const },
+    { text: 'Inicio', icon: <DashboardIcon />, page: 'dashboard' as const },
     { text: 'Pedidos', icon: <AssignmentIcon />, page: 'orders' as const },
     { text: 'Repartidores', icon: <PeopleIcon />, page: 'deliveries' as const },
-    { text: 'Rutas', icon: <RouteIcon />, page: 'routes' as const },
+    //{ text: 'Rutas', icon: <RouteIcon />, page: 'routes' as const },
     { text: 'Cerrar Sesión', icon: <LogoutIcon />, action: logout },
   ];
 

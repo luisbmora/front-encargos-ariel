@@ -1,4 +1,3 @@
-// src/presentation/pages/DeliveriesPage.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -26,6 +25,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  TablePagination, 
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -64,6 +64,26 @@ const DeliveriesPage: React.FC = () => {
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
   const [orderId, setOrderId] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // --- ESTADOS PARA PAGINACIÓN ---
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // --- MANEJADORES DE PAGINACIÓN ---
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // --- FILTRADO DE DATOS PARA LA PÁGINA ACTUAL ---
+  const paginatedDeliveries = deliveries.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   const handleCreate = () => {
     setSelectedDelivery(null);
@@ -146,7 +166,13 @@ const DeliveriesPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    // CORRECCIÓN AQUÍ: Usamos calc(100vh - 64px) para restar la altura del header y evitar el corte
+    <Box sx={{ 
+      p: 3, 
+      height: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)' }, // Ajuste responsivo para el header
+      overflowY: 'auto',
+      pb: 10 // Padding extra abajo para que no quede pegado
+    }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" fontWeight="bold" color={theme.palette.primary.main}>
@@ -192,117 +218,25 @@ const DeliveriesPage: React.FC = () => {
       </Stack>
 
       {/* Content */}
-      {isMobile ? (
-        // Mobile Cards View
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {deliveries.map((delivery) => (
-            <Card key={delivery._id}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
-                      {delivery.nombre}
-                    </Typography>
-                    <Chip
-                      label={delivery.activo ? 'Activo' : 'Inactivo'}
-                      color={delivery.activo ? 'success' : 'error'}
-                      size="small"
-                      sx={{ mt: 1 }}
-                    />
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEdit(delivery)}
-                      color="primary"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleToggleStatus(delivery._id, delivery.activo)}
-                      disabled={actionLoading === delivery._id}
-                      color={delivery.activo ? 'warning' : 'success'}
-                    >
-                      {delivery.activo ? <ToggleOn /> : <ToggleOff />}
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(delivery._id, delivery.nombre)}
-                      disabled={actionLoading === delivery._id}
-                      color="error"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <EmailIcon fontSize="small" color="action" />
-                    <Typography variant="body2">{delivery.email}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <PhoneIcon fontSize="small" color="action" />
-                    <Typography variant="body2">{delivery.telefono}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Badge 
-                      badgeContent={delivery.pedidosAsignados.length} 
-                      color="primary"
-                      sx={{ mr: 1 }}
-                    >
-                      <AssignmentIcon fontSize="small" color="action" />
-                    </Badge>
-                    <Typography variant="body2">
-                      {delivery.pedidosAsignados.length} pedidos asignados
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
-      ) : (
-        // Desktop Table View
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead sx={{ bgcolor: theme.palette.primary.main }}>
-              <TableRow>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Nombre</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Email</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Teléfono</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Pedidos Asignados</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Estado</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Acciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {deliveries.map((delivery) => (
-                <TableRow key={delivery._id} hover>
-                  <TableCell>
-                    <Typography fontWeight="medium">{delivery.nombre}</Typography>
-                  </TableCell>
-                  <TableCell>{delivery.email}</TableCell>
-                  <TableCell>{delivery.telefono}</TableCell>
-                  <TableCell>
-                    <Badge 
-                      badgeContent={delivery.pedidosAsignados.length} 
-                      color="primary"
-                      sx={{ mr: 2 }}
-                    >
-                      <AssignmentIcon />
-                    </Badge>
-                    
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={delivery.activo ? 'Activo' : 'Inactivo'}
-                      color={delivery.activo ? 'success' : 'error'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
+      <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
+        {isMobile ? (
+          // Mobile Cards View
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
+            {paginatedDeliveries.map((delivery) => (
+              <Card key={delivery._id} variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box>
+                      <Typography variant="h6" fontWeight="bold">
+                        {delivery.nombre}
+                      </Typography>
+                      <Chip
+                        label={delivery.activo ? 'Activo' : 'Inactivo'}
+                        color={delivery.activo ? 'success' : 'error'}
+                        size="small"
+                        sx={{ mt: 1 }}
+                      />
+                    </Box>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <IconButton
                         size="small"
@@ -317,13 +251,7 @@ const DeliveriesPage: React.FC = () => {
                         disabled={actionLoading === delivery._id}
                         color={delivery.activo ? 'warning' : 'success'}
                       >
-                        {actionLoading === delivery._id ? (
-                          <CircularProgress size={20} />
-                        ) : delivery.activo ? (
-                          <ToggleOn />
-                        ) : (
-                          <ToggleOff />
-                        )}
+                        {delivery.activo ? <ToggleOn /> : <ToggleOff />}
                       </IconButton>
                       <IconButton
                         size="small"
@@ -331,24 +259,138 @@ const DeliveriesPage: React.FC = () => {
                         disabled={actionLoading === delivery._id}
                         color="error"
                       >
-                        {actionLoading === delivery._id ? (
-                          <CircularProgress size={20} />
-                        ) : (
-                          <DeleteIcon />
-                        )}
+                        <DeleteIcon />
                       </IconButton>
                     </Box>
-                  </TableCell>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <EmailIcon fontSize="small" color="action" />
+                      <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>{delivery.email}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <PhoneIcon fontSize="small" color="action" />
+                      <Typography variant="body2">{delivery.telefono}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Badge 
+                        badgeContent={delivery.pedidosAsignados.length} 
+                        color="primary"
+                        sx={{ mr: 1 }}
+                      >
+                        <AssignmentIcon fontSize="small" color="action" />
+                      </Badge>
+                      <Typography variant="body2">
+                        {delivery.pedidosAsignados.length} pedidos asignados
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        ) : (
+          // Desktop Table View
+          <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)' }}> {/* Ajuste de altura para scroll interno si es necesario */}
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ bgcolor: theme.palette.primary.main, color: 'white', fontWeight: 'bold' }}>Nombre</TableCell>
+                  <TableCell sx={{ bgcolor: theme.palette.primary.main, color: 'white', fontWeight: 'bold' }}>Email</TableCell>
+                  <TableCell sx={{ bgcolor: theme.palette.primary.main, color: 'white', fontWeight: 'bold' }}>Teléfono</TableCell>
+                  <TableCell sx={{ bgcolor: theme.palette.primary.main, color: 'white', fontWeight: 'bold' }}>Pedidos Asignados</TableCell>
+                  <TableCell sx={{ bgcolor: theme.palette.primary.main, color: 'white', fontWeight: 'bold' }}>Estado</TableCell>
+                  <TableCell sx={{ bgcolor: theme.palette.primary.main, color: 'white', fontWeight: 'bold' }}>Acciones</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+              </TableHead>
+              <TableBody>
+                {paginatedDeliveries.map((delivery) => (
+                  <TableRow key={delivery._id} hover>
+                    <TableCell>
+                      <Typography fontWeight="medium">{delivery.nombre}</Typography>
+                    </TableCell>
+                    <TableCell>{delivery.email}</TableCell>
+                    <TableCell>{delivery.telefono}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        badgeContent={delivery.pedidosAsignados.length} 
+                        color="primary"
+                        sx={{ mr: 2 }}
+                      >
+                        <AssignmentIcon color="action" />
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={delivery.activo ? 'Activo' : 'Inactivo'}
+                        color={delivery.activo ? 'success' : 'error'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEdit(delivery)}
+                          color="primary"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleToggleStatus(delivery._id, delivery.activo)}
+                          disabled={actionLoading === delivery._id}
+                          color={delivery.activo ? 'warning' : 'success'}
+                        >
+                          {actionLoading === delivery._id ? (
+                            <CircularProgress size={20} />
+                          ) : delivery.activo ? (
+                            <ToggleOn />
+                          ) : (
+                            <ToggleOff />
+                          )}
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDelete(delivery._id, delivery.nombre)}
+                          disabled={actionLoading === delivery._id}
+                          color="error"
+                        >
+                          {actionLoading === delivery._id ? (
+                            <CircularProgress size={20} />
+                          ) : (
+                            <DeleteIcon />
+                          )}
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
+        {/* CONTROL DE PAGINACIÓN */}
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={deliveries.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Filas por página:"
+          labelDisplayedRows={({ from, to, count }) => 
+            `${from}-${to} de ${count !== -1 ? count : `más de ${to}`}`
+          }
+        />
+      </Paper>
 
       {/* Empty State */}
       {deliveries.length === 0 && !loading && (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
+        <Paper sx={{ p: 4, textAlign: 'center', mt: 2 }}>
           <Typography variant="h6" color="text.secondary" gutterBottom>
             No hay repartidores registrados
           </Typography>
