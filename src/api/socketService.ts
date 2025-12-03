@@ -3,17 +3,26 @@ import { io, Socket } from 'socket.io-client';
 
 class SocketService {
   private socket: Socket | null = null;
-  // Nginx se encargará de redirigirlo al backend internamente.
-  private readonly url = '/'; 
+  // 1. Detectamos si estamos corriendo en localhost
+  private isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  // 2. Definimos la URL dinámicamente
+  // - En Local: Usamos la IP directa de tu API (HTTP)
+  // - En Prod: Usamos '/' para que Nginx haga el túnel seguro (HTTPS)
+  private readonly url = this.isLocal 
+    ? 'http://152.67.233.117:3000' 
+    : '/';
 
   connect(): Socket {
     if (!this.socket) {
+      console.log(`🔌 Conectando Socket en modo: ${this.isLocal ? 'LOCAL (Directo)' : 'PRODUCCIÓN (Proxy Nginx)'}`);
+
       this.socket = io(this.url, {
-        // CAMBIO 2: Path explícito para que coincida con tu Nginx location /socket.io/
-        path: '/socket.io/', 
+        path: '/socket.io/',
         transports: ['websocket'],
         autoConnect: true,
-        secure: true, // Importante porque estamos en HTTPS
+        // 3. Solo activamos modo seguro si NO estamos en local
+        secure: !this.isLocal, 
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
       });
