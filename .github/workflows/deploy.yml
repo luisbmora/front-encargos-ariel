@@ -22,6 +22,8 @@ jobs:
       run: npm install
 
     - name: Construir Proyecto (Build)
+      env:
+          CI: false
       # AQUÍINYECTAMOS LAS VARIABLES DE ENTORNO
       # Reemplaza la KEY de Google Maps aquí abajo
       run: |
