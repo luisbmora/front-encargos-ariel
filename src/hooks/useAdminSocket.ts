@@ -18,8 +18,6 @@ export interface SocketStats {
   };
 }
 
-const SOCKET_URL = 'http://152.67.233.117';
-
 export const useAdminSocket = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -46,13 +44,25 @@ export const useAdminSocket = () => {
         return;
     }
 
-    console.log(`🔌 Admin Socket: Conectando a ${SOCKET_URL}...`);
+    // --- CORRECCIÓN DE MIXED CONTENT ---
+    // 1. Detectamos si estamos en local
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    // 2. Definimos la URL:
+    // - Local: IP Directa (HTTP) con puerto 3000
+    // - Prod: '/' (HTTPS vía Nginx Proxy)
+    const socketUrl = isLocal ? 'http://152.67.233.117:3000' : '/';
 
-    const socketInstance = io(SOCKET_URL, {
+    console.log(`🔌 Admin Socket: Conectando a ${socketUrl} (Modo: ${isLocal ? 'Local' : 'Proxy Nginx'})...`);
+
+    const socketInstance = io(socketUrl, {
       auth: { token },
+      // Importante: 'path' debe coincidir con tu config de Nginx location /socket.io/
+      path: '/socket.io/', 
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 3000,
+      secure: !isLocal, // En prod usamos secure (WSS)
     });
 
     socketInstance.on('connect', () => {
@@ -93,7 +103,7 @@ export const useAdminSocket = () => {
     socketInstance.on('ubicacion_actualizada', (data: SocketDelivery) => handleUpdateDelivery(data));
     
     socketInstance.on('location_update', (data: any) => {
-      console.log(`${data.latitude}, ${data.longitude}`); // Log solicitado previamente
+      // console.log(`${data.latitude}, ${data.longitude}`); 
       const deliveryData: SocketDelivery = {
         repartidorId: data.userId,
         latitud: data.latitude,
@@ -123,14 +133,12 @@ export const useAdminSocket = () => {
     });
 
     // --- NUEVO: EVENTO DE CAMBIO DE ESTADO DE PEDIDO ---
-    // Escuchamos el evento exacto que emite el backend: delivery_status_change
     socketInstance.on('delivery_status_change', (data: { orderId: string, status: string, repartidorId: string, timestamp: any }) => {
         console.log('📦 Cambio de estado recibido (Socket):', data);
         
-        // Adaptamos los datos al formato que usa tu frontend (_id, estado)
         const updateData = {
-            _id: data.orderId,       // Backend envía orderId -> Frontend usa _id
-            estado: data.status,     // Backend envía status -> Frontend usa estado
+            _id: data.orderId,
+            estado: data.status,
             repartidorAsignado: data.repartidorId,
             updatedAt: data.timestamp
         };
@@ -138,7 +146,6 @@ export const useAdminSocket = () => {
         setLatestOrderUpdate(updateData);
     });
 
-    // Evento alternativo por si el backend usa otro nombre (backup)
     socketInstance.on('order_update', (data: any) => {
         if (data.type === 'delivery_status_change') {
              console.log('📦 Order Update recibido (Socket):', data);
@@ -199,6 +206,6 @@ export const useAdminSocket = () => {
     enviarNotificacion,
     socketId,
     currentRoom,
-    latestOrderUpdate // Exportamos el estado de actualización
+    latestOrderUpdate
   };
 };
