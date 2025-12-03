@@ -1,0 +1,43 @@
+name: Deploy React App to OCI
+
+on:
+  push:
+    branches:
+      - main  # O 'master', revisa cómo se llama tu rama principal
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v3
+
+    - name: Instalar Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Instalar dependencias
+      run: npm install
+
+    - name: Construir Proyecto (Build)
+      env:
+          CI: false
+      # AQUÍINYECTAMOS LAS VARIABLES DE ENTORNO
+      # Reemplaza la KEY de Google Maps aquí abajo
+      run: |
+        export REACT_APP_API_URL=/api
+        export REACT_APP_SOCKET_URL=/
+        export REACT_APP_GOOGLE_MAPS_KEY=PON_AQUI_TU_KEY_REAL
+        npm run build
+
+    - name: Desplegar al Servidor (SCP)
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        source: "build/*"
+        target: "/var/www/ncargos"
+        strip_components: 1 # Esto saca los archivos de la carpeta 'build' para que queden en la raiz
