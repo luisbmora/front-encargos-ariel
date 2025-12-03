@@ -3,13 +3,19 @@ import { io, Socket } from 'socket.io-client';
 
 class SocketService {
   private socket: Socket | null = null;
-  private readonly url = 'https://api-encargos-ariel.onrender.com'; // Tu API URL
+  // Nginx se encargará de redirigirlo al backend internamente.
+  private readonly url = '/'; 
 
   connect(): Socket {
     if (!this.socket) {
       this.socket = io(this.url, {
+        // CAMBIO 2: Path explícito para que coincida con tu Nginx location /socket.io/
+        path: '/socket.io/', 
         transports: ['websocket'],
         autoConnect: true,
+        secure: true, // Importante porque estamos en HTTPS
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
       });
 
       this.socket.on('connect', () => {
@@ -20,9 +26,7 @@ class SocketService {
         console.log('Desconectado del servidor de sockets');
       });
 
-      this.socket.on('error', (error) => {
-        console.error('Error en socket:', error);
-      });
+      
     }
 
     return this.socket;
