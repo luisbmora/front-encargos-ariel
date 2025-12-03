@@ -7,6 +7,7 @@ interface MapDelivery {
   name: string;
   location: { lat: number; lng: number };
   isActive: boolean;
+  statusText?: string; // Campo necesario para saber si está en pausa
   phone?: string;
 }
 
@@ -32,7 +33,7 @@ const BasicMap: React.FC<BasicMapProps> = ({ deliveries, orders }) => {
     const initMap = async () => {
       try {
         const loader = new Loader({
-          apiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyArRZ1oMeBMdwpLIB3hssEt_99ceKdzV5s", // Tu API Key
+          apiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyArRZ1oMeBMdwpLIB3hssEt_99ceKdzV5s",
           version: "weekly",
           libraries: ["places"],
         });
@@ -41,7 +42,7 @@ const BasicMap: React.FC<BasicMapProps> = ({ deliveries, orders }) => {
 
         if (mapRef.current && !map) {
           const mapInstance = new google.maps.Map(mapRef.current, {
-            center: { lat: 20.659698, lng: -103.349609 }, // Centro default
+            center: { lat: 20.659698, lng: -103.349609 }, 
             zoom: 13,
             mapTypeControl: false,
             streetViewControl: false,
@@ -49,7 +50,14 @@ const BasicMap: React.FC<BasicMapProps> = ({ deliveries, orders }) => {
             zoomControl: true,
             zoomControlOptions: {
                 position: google.maps.ControlPosition.RIGHT_CENTER
-            }
+            },
+            styles: [
+                {
+                    featureType: "poi",
+                    elementType: "labels",
+                    stylers: [{ visibility: "off" }],
+                },
+            ]
           });
           setMap(mapInstance);
         }
@@ -71,18 +79,26 @@ const BasicMap: React.FC<BasicMapProps> = ({ deliveries, orders }) => {
 
     // 1. Pintar Repartidores
     deliveries.forEach((d) => {
-        // Validación estricta de coordenadas
-        if (!d.location || typeof d.location.lat !== 'number' || typeof d.location.lng !== 'number') return;
+        if (!d.location || typeof d.location.lat !== 'number') return;
         if (d.location.lat === 0 && d.location.lng === 0) return;
+
+        // --- LÓGICA DE COLOR ---
+        let color = "#f44336"; // Rojo (Inactivo/Desconectado)
+        
+        if (d.statusText === 'en_pausa') {
+            color = "#ff9800"; // Naranja (En Pausa)
+        } else if (d.isActive) {
+            color = "#4caf50"; // Verde (Activo)
+        }
 
         const marker = new google.maps.Marker({
             position: d.location,
             map: map,
-            title: d.name,
+            title: `${d.name} (${d.statusText})`,
             icon: {
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 8,
-                fillColor: d.isActive ? "#4caf50" : "#f44336",
+                fillColor: color,
                 fillOpacity: 1,
                 strokeColor: "white",
                 strokeWeight: 2,
@@ -90,7 +106,13 @@ const BasicMap: React.FC<BasicMapProps> = ({ deliveries, orders }) => {
         });
 
         const infoWindow = new google.maps.InfoWindow({
-            content: `<div style="color:black; font-weight:bold;">${d.name}</div><div style="color:#555;">${d.phone || ''}</div>`
+            content: `
+              <div style="color:black; min-width:100px">
+                <b>${d.name}</b><br/>
+                <span style="color: ${color}">● ${d.statusText?.toUpperCase() || 'DESCONECTADO'}</span><br/>
+                ${d.phone || ''}
+              </div>
+            `
         });
         marker.addListener('click', () => infoWindow.open(map, marker));
 
@@ -100,8 +122,7 @@ const BasicMap: React.FC<BasicMapProps> = ({ deliveries, orders }) => {
     // 2. Pintar Ordenes
     orders.forEach((o) => {
         if (!o.location || typeof o.location.lat !== 'number') return;
-        if (o.location.lat === 0 && o.location.lng === 0) return;
-
+        
         const marker = new google.maps.Marker({
             position: o.location,
             map: map,
