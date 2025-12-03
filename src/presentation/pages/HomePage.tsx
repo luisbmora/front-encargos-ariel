@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -71,15 +71,48 @@ import BasicMap from "../components/BasicMap";
 import OrderForm from "../components/OrderForm"; 
 
 export default function HomePage() {
-  const { orders, assignDelivery, createOrder, updateOrderStatus } = useOrders(); 
+  const { orders: initialOrders, assignDelivery, createOrder, updateOrderStatus } = useOrders(); 
   const { deliveries } = useDeliveries(); 
   
-  const { activeDeliveries: socketDeliveries, isConnected, enviarNotificacion, socketId, currentRoom } = useAdminSocket();
+  // SOCKET: Datos en tiempo real + Actualización de pedidos
+  const { activeDeliveries: socketDeliveries, isConnected, enviarNotificacion, socketId, currentRoom, latestOrderUpdate } = useAdminSocket();
 
   const [tabIndex, setTabIndex] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [panelOpen, setPanelOpen] = useState(true);
   
+  // --- ESTADO LOCAL DE ÓRDENES (Para actualización instantánea) ---
+  const [localOrders, setLocalOrders] = useState<Order[]>([]);
+
+  // 1. Cargar órdenes iniciales de la API
+  useEffect(() => {
+    if (initialOrders && initialOrders.length > 0) {
+        setLocalOrders(initialOrders);
+    }
+  }, [initialOrders]);
+
+  // 2. Escuchar cambios del Socket y actualizar estado local
+  useEffect(() => {
+    if (latestOrderUpdate) {
+        console.log("🔄 HomePage: Actualizando orden por socket:", latestOrderUpdate);
+        setLocalOrders((prevOrders) => {
+            const exists = prevOrders.find(o => o._id === latestOrderUpdate._id);
+            if (exists) {
+                // Actualizar solo el estado del pedido existente
+                return prevOrders.map(o => 
+                    o._id === latestOrderUpdate._id 
+                        ? { ...o, ...latestOrderUpdate } // Merge de la actualización
+                        : o
+                );
+            } else {
+                // Si es un pedido nuevo (opcional, dependerá de si el socket manda pedidos nuevos)
+                return prevOrders; 
+            }
+        });
+    }
+  }, [latestOrderUpdate]);
+
+
   const [selectedDriverForModal, setSelectedDriverForModal] = useState<any>(null);
   const [orderToAssign, setOrderToAssign] = useState<any>(null);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<any>(null);
@@ -90,9 +123,9 @@ export default function HomePage() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
 
-  // 1. FUSIÓN DE DATOS (Socket + BD) CON FILTRADO DE DESCONECTADOS
+  // 1. FUSIÓN DE REPARTIDORES
   const mappedDeliveries = useMemo(() => {
-    // Fallback: Si no hay BD, usamos solo socket
+    // Fallback si no hay datos de BD
     if (deliveries.length === 0 && socketDeliveries.length > 0) {
         const fallbackList = socketDeliveries.map((loc) => ({
             id: loc.repartidorId,
@@ -103,24 +136,20 @@ export default function HomePage() {
             phone: '',
             vehicleType: 'motorcycle'
         }));
-        
-        // FILTRAR Y ORDENAR
-        return fallbackList
-            .filter(d => d.isActive) // <--- Solo mostramos activos
-            .sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1));
+        return fallbackList.sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1));
     }
 
-    // Fusión Principal
     const mergedList = deliveries.map((dbDelivery: Delivery) => {
       const realLoc = socketDeliveries.find(loc => loc.repartidorId === dbDelivery._id);
-      
       const defaultLocation = { lat: 20.659698, lng: -103.349609 }; 
-      const finalLocation = realLoc && (realLoc.latitud !== 0)
-        ? { lat: realLoc.latitud, lng: realLoc.longitud }
+      
+      // Usar ubicación real si existe y no es 0,0
+      const finalLocation = realLoc && (realLoc.latitud !== 0) 
+        ? { lat: realLoc.latitud, lng: realLoc.longitud } 
         : defaultLocation;
 
       const isOnline = realLoc 
-        ? (realLoc.estado === 'conectado' || realLoc.estado === 'activo' || realLoc.estado === 'en_pausa') 
+        ? (realLoc.estado !== 'desconectado' && realLoc.estado !== 'inactivo') 
         : false;
 
       return {
@@ -128,26 +157,28 @@ export default function HomePage() {
         name: dbDelivery.nombre,
         location: finalLocation,
         isActive: isOnline,
-        statusText: realLoc ? realLoc.estado : 'desconectado', 
+        statusText: realLoc ? realLoc.estado : 'desconectado',
         phone: dbDelivery.telefono,
         vehicleType: 'motorcycle', 
         avatarUrl: '' 
       };
     });
 
-    // --- FILTRADO Y ORDENAMIENTO ---
-    return mergedList
-        .filter(d => d.isActive) // <--- ESTO FILTRA LOS DESCONECTADOS DEL MAPA Y LISTA
-        .sort((a, b) => {
-            if (a.isActive === b.isActive) return 0; 
-            return a.isActive ? -1 : 1;
-        });
-
+    return mergedList.sort((a, b) => {
+        // Prioridad 1: Pausa (Naranja) y Activo (Verde) van arriba
+        const aScore = (a.statusText === 'en_pausa' || a.isActive) ? 1 : 0;
+        const bScore = (b.statusText === 'en_pausa' || b.isActive) ? 1 : 0;
+        
+        if (aScore !== bScore) return bScore - aScore; // Activos primero
+        
+        // Prioridad 2: Alfabético si tienen el mismo estado
+        return a.name.localeCompare(b.name);
+    });
   }, [deliveries, socketDeliveries]);
 
-  // 2. ORDENES
+  // 2. ORDENES (Usando localOrders)
   const mappedOrders = useMemo(() => {
-    return orders
+    return localOrders
         .filter((o: Order) => ['pendiente', 'asignado', 'en_camino'].includes(o.estado))
         .map((o: Order) => ({
             ...o,
@@ -160,7 +191,7 @@ export default function HomePage() {
             repartidorAsignado: o.repartidorAsignado, 
             location: { lat: 20.66, lng: -103.35 } 
         }));
-  }, [orders]);
+  }, [localOrders]);
 
   // 3. FILTRADO DE LISTA
   const filteredList = useMemo(() => {
@@ -177,7 +208,8 @@ export default function HomePage() {
   }, [tabIndex, mappedDeliveries, mappedOrders, searchTerm]);
 
   const getDriverOrders = (driverId: string, includeHistory = false) => {
-    return orders.filter(o => {
+    // Usamos localOrders para que el conteo sea en tiempo real
+    return localOrders.filter(o => {
         const assignedId = typeof o.repartidorAsignado === 'object' && o.repartidorAsignado !== null
             ? (o.repartidorAsignado as any)._id 
             : o.repartidorAsignado;
@@ -214,6 +246,11 @@ export default function HomePage() {
                  telefono: orderToAssign.clienteTelefono
              }
           });
+          
+          // Actualizar localmente
+          setLocalOrders(prev => prev.map(o => 
+             o._id === orderToAssign.id ? { ...o, estado: 'asignado', repartidorAsignado: selectedDriverId } : o
+          ));
 
           setOrderToAssign(null);
           setSelectedDriverId('');
@@ -231,6 +268,8 @@ export default function HomePage() {
         const success = await createOrder(data);
         if (success) {
             setIsCreateOrderOpen(false);
+            // Si tu createOrder no devuelve la orden creada, aquí deberías recargar la lista completa
+            // window.location.reload(); // O mejor, usar un refetch si tienes react-query
         }
         return success;
     } catch (error) {
@@ -252,7 +291,14 @@ export default function HomePage() {
         setIsUpdatingStatus(true);
         if (updateOrderStatus) {
             await updateOrderStatus(selectedOrderForDetails._id, newStatus);
+            
+            // Actualizar en modales
             setSelectedOrderForDetails((prev: any) => ({ ...prev, estado: newStatus }));
+            
+            // Actualizar en lista principal
+            setLocalOrders(prev => prev.map(o => 
+                o._id === selectedOrderForDetails._id ? { ...o, estado: newStatus } : o
+            ));
         }
     } catch (error) {
         console.error("Error actualizando estatus:", error);
@@ -270,9 +316,9 @@ export default function HomePage() {
   };
 
   const getStatusColor = (statusText: string, isActive: boolean) => {
-      if (statusText === 'en_pausa') return '#ff9800'; 
-      if (isActive) return '#4caf50'; 
-      return '#bdbdbd'; 
+      if (statusText === 'en_pausa') return '#ff9800'; // Naranja
+      if (isActive) return '#4caf50'; // Verde
+      return '#bdbdbd'; // Gris
   };
 
   const getStatusLabel = (statusText: string) => {
@@ -353,14 +399,6 @@ export default function HomePage() {
                     <CircularProgress size={16}/><Typography variant="caption" color="text.secondary">Conectando al servidor...</Typography>
                  </Box>
             )}
-            
-            {/* Mensaje cuando no hay repartidores conectados */}
-            {isConnected && tabIndex === 0 && filteredList.length === 0 && (
-                <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={4} color="text.secondary">
-                    <WifiOffIcon sx={{ fontSize: 40, mb: 1, opacity: 0.5 }} />
-                    <Typography variant="body2">No hay repartidores conectados</Typography>
-                </Box>
-            )}
 
             <List>
               {filteredList.map((item: any) => {
@@ -380,6 +418,7 @@ export default function HomePage() {
                                     {item.name ? item.name.charAt(0).toUpperCase() : "R"}
                                 </Avatar>
                             </Badge>
+                            {/* INDICADOR DE ESTADO (COLOR) */}
                             <Box
                               sx={{
                                 position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: '50%', border: '2px solid white',
@@ -399,8 +438,8 @@ export default function HomePage() {
                                 </Box>
                                 <Typography variant="caption" display="block" 
                                     sx={{ 
-                                        color: getStatusColor(item.statusText, item.isActive) === '#ff9800' ? 'warning.main' : 'success.main',
-                                        fontWeight: 'bold'
+                                        color: getStatusColor(item.statusText, item.isActive) === '#ff9800' ? 'warning.main' : (item.isActive ? 'success.main' : 'text.disabled'),
+                                        fontWeight: item.isActive ? 'bold' : 'normal'
                                     }}>
                                     {getStatusLabel(item.statusText)}
                                 </Typography>
@@ -447,7 +486,7 @@ export default function HomePage() {
         <Button variant="contained" color="primary" onClick={() => setPanelOpen(true)} sx={{ position: 'absolute', top: 20, left: 20, zIndex: 100 }}>Abrir Panel</Button>
       )}
 
-      {/* MODALES SE MANTIENEN IGUALES... */}
+      {/* MODALES */}
       
       <Dialog open={!!selectedDriverForModal} onClose={() => setSelectedDriverForModal(null)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0a3d35', color: 'white' }}>
@@ -482,7 +521,7 @@ export default function HomePage() {
         <DialogContent dividers>
              <RadioGroup value={selectedDriverId} onChange={(e) => setSelectedDriverId(e.target.value)}>
                 <List disablePadding>
-                    {mappedDeliveries.filter(d => d.isActive).map((driver) => (
+                    {mappedDeliveries.filter(d => d.isActive || d.statusText === 'en_pausa').map((driver) => (
                         <ListItemButton key={driver.id} onClick={() => setSelectedDriverId(driver.id)} selected={selectedDriverId === driver.id}>
                             <FormControlLabel value={driver.id} control={<Radio />} label={driver.name} />
                         </ListItemButton>
