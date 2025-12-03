@@ -42,7 +42,7 @@ import {
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useDeliveries } from '../../hooks/useDeliveries';
-import { useAdminSocket } from '../../hooks/useAdminSocket'; // <--- IMPORTANTE: Hook de Socket
+import { useAdminSocket } from '../../hooks/useAdminSocket'; // <--- Hook del Socket
 import { Delivery } from '../../types/delivery';
 import DeliveryForm from '../components/DeliveryForm';
 import theme from '../../theme/theme';
@@ -52,7 +52,7 @@ const DeliveriesPage: React.FC = () => {
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
   
-  // Hooks de Datos y Socket
+  // Hooks de Datos
   const {
     deliveries,
     loading,
@@ -64,7 +64,7 @@ const DeliveriesPage: React.FC = () => {
     assignOrder,
   } = useDeliveries();
 
-  // Obtenemos el estado en tiempo real
+  // Hook de Socket para estado en tiempo real
   const { activeDeliveries: socketDeliveries } = useAdminSocket();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -77,20 +77,20 @@ const DeliveriesPage: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // --- 1. FUSIÓN DE DATOS (Base de Datos + Socket) ---
+  // --- 1. FUSIÓN DE DATOS (Igual que en HomePage) ---
   const synchronizedDeliveries = useMemo(() => {
     return deliveries.map((dbDelivery) => {
-        // Buscar si este repartidor tiene señal en el socket
+        // Buscar datos del socket para este repartidor
         const socketData = socketDeliveries.find(s => s.repartidorId === dbDelivery._id);
         
-        // Determinar si está realmente conectado
+        // Determinar si está conectado
         const isOnline = socketData 
             ? (socketData.estado === 'conectado' || socketData.estado === 'activo' || socketData.estado === 'en_pausa') 
             : false;
 
         return {
             ...dbDelivery,
-            isOnline, // Estado de conexión real
+            isOnline, // Estado real de conexión
             statusText: socketData ? socketData.estado : 'desconectado' // Texto exacto (pausa, activo, etc)
         };
     });
@@ -102,11 +102,11 @@ const DeliveriesPage: React.FC = () => {
     page * rowsPerPage + rowsPerPage
   );
 
-  // --- HELPERS VISUALES ---
+  // --- HELPERS VISUALES (Sincronizados con Home) ---
   const getConnectionColor = (statusText: string, isOnline: boolean) => {
-      if (statusText === 'en_pausa') return 'warning';
-      if (isOnline) return 'success';
-      return 'default'; // Gris para desconectado
+      if (statusText === 'en_pausa') return 'warning'; // Naranja
+      if (isOnline) return 'success'; // Verde
+      return 'default'; // Gris
   };
 
   const getConnectionLabel = (statusText: string, isOnline: boolean) => {
@@ -146,12 +146,16 @@ const DeliveriesPage: React.FC = () => {
     try {
       const deliveryName = deliveries.find(d => d._id === id)?.nombre || 'Repartidor';
       const newStatus = !currentStatus;
+      
       AlertService.loading(
         `${newStatus ? 'Activando' : 'Desactivando'} repartidor...`,
         `Cambiando estado de cuenta de ${deliveryName}`
       );
+      
       const success = await toggleDeliveryStatus(id, currentStatus);
+      
       AlertService.close();
+      
       if (success) {
         await AlertService.success(
           `Cuenta ${newStatus ? 'activada' : 'desactivada'}`,
@@ -221,7 +225,7 @@ const DeliveriesPage: React.FC = () => {
           <Typography variant="h6">Total Registrados</Typography>
           <Typography variant="h4" fontWeight="bold">{deliveries.length}</Typography>
         </Paper>
-        {/* Ahora cuenta los conectados en tiempo real */}
+        {/* Contadores basados en estado real del Socket */}
         <Paper sx={{ p: 2, flex: 1, bgcolor: theme.palette.primary.light, color: 'white' }}>
           <Typography variant="h6">Conectados (Online)</Typography>
           <Typography variant="h4" fontWeight="bold">
@@ -258,7 +262,6 @@ const DeliveriesPage: React.FC = () => {
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <IconButton size="small" onClick={() => handleEdit(delivery)} color="primary"><EditIcon /></IconButton>
-                      {/* Botón Toggle Cuenta (Habilitar/Deshabilitar) */}
                       <Tooltip title={delivery.activo ? "Deshabilitar Cuenta" : "Habilitar Cuenta"}>
                           <IconButton size="small" onClick={() => handleToggleStatus(delivery._id, delivery.activo)} disabled={actionLoading === delivery._id} color={delivery.activo ? 'warning' : 'default'}>
                             {delivery.activo ? <ToggleOn /> : <ToggleOff />}
@@ -374,9 +377,7 @@ const DeliveriesPage: React.FC = () => {
       )}
 
       {isMobile && (
-        <Fab color="primary" sx={{ position: 'fixed', bottom: 16, right: 16, bgcolor: theme.palette.primary.main }} onClick={handleCreate}>
-          <AddIcon />
-        </Fab>
+        <Fab color="primary" sx={{ position: 'fixed', bottom: 16, right: 16, bgcolor: theme.palette.primary.main }} onClick={handleCreate}><AddIcon /></Fab>
       )}
 
       <DeliveryForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleFormSubmit} delivery={selectedDelivery} loading={loading} isEdit={!!selectedDelivery} />

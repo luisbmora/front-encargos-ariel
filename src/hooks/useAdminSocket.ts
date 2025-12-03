@@ -26,6 +26,9 @@ export const useAdminSocket = () => {
   const [activeDeliveries, setActiveDeliveries] = useState<SocketDelivery[]>([]);
   const [stats, setStats] = useState<SocketStats | null>(null);
   
+  // Estado para notificar a las páginas que hubo un cambio de estado en un pedido
+  const [latestOrderUpdate, setLatestOrderUpdate] = useState<any>(null);
+  
   const [socketId, setSocketId] = useState<string>('');
   const [currentRoom, setCurrentRoom] = useState<string>('General');
 
@@ -43,7 +46,7 @@ export const useAdminSocket = () => {
         return;
     }
 
-    console.log(`🔌 Admin Socket: Conectando...`);
+    console.log(`🔌 Admin Socket: Conectando a ${SOCKET_URL}...`);
 
     const socketInstance = io(SOCKET_URL, {
       auth: { token },
@@ -59,26 +62,15 @@ export const useAdminSocket = () => {
       
       socketInstance.emit('solicitar_ubicaciones');
       socketInstance.emit('solicitar_estadisticas');
+      
+      // Unirse explícitamente a la sala de admins si el backend lo requiere
+      socketInstance.emit('join_room', 'admins');
     });
 
     socketInstance.on('joined_room', (room: string) => {
         console.log(`🏠 Admin Socket: Ingresado a la sala: ${room}`);
         setCurrentRoom(room);
     });
-
-    // --- CONFIRMACIONES DE NOTIFICACIÓN (NUEVO) ---
-    socketInstance.on('notificacion_enviada', (data: any) => {
-        console.log('✅ Admin Socket: Servidor confirmó envío de notificación:', data);
-    });
-
-    socketInstance.on('notificacion_respondida', (data: any) => {
-        console.log('💬 Admin Socket: Repartidor respondió:', data);
-    });
-
-    socketInstance.on('error', (err: any) => {
-      console.error('❌ Admin Socket: Error reportado por servidor:', err);
-    });
-    // ----------------------------------------------
 
     socketInstance.on('connect_error', (err) => {
       console.error('❌ Admin Socket: Error de conexión:', err.message);
@@ -90,23 +82,18 @@ export const useAdminSocket = () => {
       setSocketId('');
     });
 
-    // --- EVENTOS DE DATOS ---
+    // --- EVENTOS DE REPARTIDORES ---
 
     socketInstance.on('ubicaciones_actuales', (ubicaciones: SocketDelivery[]) => {
-      console.log(`📍 Recibidas ${ubicaciones?.length || 0} ubicaciones actuales`);
       if (Array.isArray(ubicaciones)) {
           setActiveDeliveries(ubicaciones);
       }
     });
 
-    socketInstance.on('ubicacion_actualizada', (data: SocketDelivery) => {
-      handleUpdateDelivery(data);
-    });
-
+    socketInstance.on('ubicacion_actualizada', (data: SocketDelivery) => handleUpdateDelivery(data));
+    
     socketInstance.on('location_update', (data: any) => {
-      // Log de coordenadas solicitado anteriormente
-      console.log(`${data.latitude}, ${data.longitude}`);
-      
+      console.log(`${data.latitude}, ${data.longitude}`); // Log solicitado previamente
       const deliveryData: SocketDelivery = {
         repartidorId: data.userId,
         latitud: data.latitude,
@@ -119,11 +106,9 @@ export const useAdminSocket = () => {
     });
 
     socketInstance.on('repartidor_estado_cambiado', (data: { repartidorId: string, estado: any }) => {
-      console.log(`🔄 Estado: ${data.repartidorId} -> ${data.estado}`);
-      
+      console.log(`🔄 Estado Repartidor: ${data.repartidorId} -> ${data.estado}`);
       setActiveDeliveries(prev => {
         const index = prev.findIndex(d => d.repartidorId === data.repartidorId);
-        
         if (index !== -1) {
           const newArr = [...prev];
           newArr[index] = { ...newArr[index], estado: data.estado };
@@ -131,13 +116,38 @@ export const useAdminSocket = () => {
         } else {
           return [...prev, {
             repartidorId: data.repartidorId,
-            latitud: 0, 
-            longitud: 0,
-            estado: data.estado,
-            velocidad: 0
+            latitud: 0, longitud: 0, estado: data.estado, velocidad: 0
           }];
         }
       });
+    });
+
+    // --- NUEVO: EVENTO DE CAMBIO DE ESTADO DE PEDIDO ---
+    // Escuchamos el evento exacto que emite el backend: delivery_status_change
+    socketInstance.on('delivery_status_change', (data: { orderId: string, status: string, repartidorId: string, timestamp: any }) => {
+        console.log('📦 Cambio de estado recibido (Socket):', data);
+        
+        // Adaptamos los datos al formato que usa tu frontend (_id, estado)
+        const updateData = {
+            _id: data.orderId,       // Backend envía orderId -> Frontend usa _id
+            estado: data.status,     // Backend envía status -> Frontend usa estado
+            repartidorAsignado: data.repartidorId,
+            updatedAt: data.timestamp
+        };
+        
+        setLatestOrderUpdate(updateData);
+    });
+
+    // Evento alternativo por si el backend usa otro nombre (backup)
+    socketInstance.on('order_update', (data: any) => {
+        if (data.type === 'delivery_status_change') {
+             console.log('📦 Order Update recibido (Socket):', data);
+             setLatestOrderUpdate({
+                _id: data.orderId,
+                estado: data.status,
+                updatedAt: data.timestamp
+             });
+        }
     });
 
     socketInstance.on('estadisticas_actuales', (newStats: SocketStats) => {
@@ -174,13 +184,10 @@ export const useAdminSocket = () => {
         mensaje: datos.mensaje,
         datos: datos.extraData
       };
-      
-      // Log para verificar exactamente qué sale del front
-      console.log('📤 Emitiendo enviar_notificacion:', payload);
       socket.emit('enviar_notificacion', payload);
+      console.log('🔔 Admin Socket: Notificación enviada:', payload);
       return true;
     }
-    console.warn('⚠️ No se pudo enviar: Socket desconectado');
     return false;
   }, [socket, isConnected]);
 
@@ -191,6 +198,7 @@ export const useAdminSocket = () => {
     stats,
     enviarNotificacion,
     socketId,
-    currentRoom
+    currentRoom,
+    latestOrderUpdate // Exportamos el estado de actualización
   };
 };
