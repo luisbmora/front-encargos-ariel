@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-// Interfaz exacta de los datos que vienen en el array del socket
 export interface SocketDelivery {
   repartidorId: string;
   latitud: number;
@@ -11,7 +10,6 @@ export interface SocketDelivery {
   timestamp?: string;
 }
 
-// Interfaz para las estadísticas
 export interface SocketStats {
   ubicaciones?: {
     repartidoresActivos: number;
@@ -25,7 +23,6 @@ const SOCKET_URL = 'http://152.67.233.117';
 export const useAdminSocket = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  // Aquí se guardan las ubicaciones recibidas
   const [activeDeliveries, setActiveDeliveries] = useState<SocketDelivery[]>([]);
   const [stats, setStats] = useState<SocketStats | null>(null);
   
@@ -60,35 +57,56 @@ export const useAdminSocket = () => {
       setIsConnected(true);
       setSocketId(socketInstance.id || '');
       
-      // IMPORTANTE: Solicitamos las ubicaciones al conectar
       socketInstance.emit('solicitar_ubicaciones');
       socketInstance.emit('solicitar_estadisticas');
     });
 
-    // ---------------------------------------------------------
-    // AQUÍ ESTÁ LA IMPLEMENTACIÓN QUE PIDES (Consumir ubicaciones_actuales)
-    // ---------------------------------------------------------
+    socketInstance.on('joined_room', (room: string) => {
+        console.log(`🏠 Admin Socket: Ingresado a la sala: ${room}`);
+        setCurrentRoom(room);
+    });
+
+    // --- CONFIRMACIONES DE NOTIFICACIÓN (NUEVO) ---
+    socketInstance.on('notificacion_enviada', (data: any) => {
+        console.log('✅ Admin Socket: Servidor confirmó envío de notificación:', data);
+    });
+
+    socketInstance.on('notificacion_respondida', (data: any) => {
+        console.log('💬 Admin Socket: Repartidor respondió:', data);
+    });
+
+    socketInstance.on('error', (err: any) => {
+      console.error('❌ Admin Socket: Error reportado por servidor:', err);
+    });
+    // ----------------------------------------------
+
+    socketInstance.on('connect_error', (err) => {
+      console.error('❌ Admin Socket: Error de conexión:', err.message);
+    });
+
+    socketInstance.on('disconnect', (reason) => {
+      console.warn('⚠️ Admin Socket: Desconectado:', reason);
+      setIsConnected(false);
+      setSocketId('');
+    });
+
+    // --- EVENTOS DE DATOS ---
+
     socketInstance.on('ubicaciones_actuales', (ubicaciones: SocketDelivery[]) => {
       console.log(`📍 Recibidas ${ubicaciones?.length || 0} ubicaciones actuales`);
-      
       if (Array.isArray(ubicaciones)) {
-          // Reemplazamos la lista completa con lo que nos da el servidor
           setActiveDeliveries(ubicaciones);
-      } else {
-          console.error('❌ Error: "ubicaciones_actuales" no es un array:', ubicaciones);
       }
     });
 
-    // Actualización individual (cuando se mueven)
     socketInstance.on('ubicacion_actualizada', (data: SocketDelivery) => {
       handleUpdateDelivery(data);
     });
 
-    // Formato alternativo (location_update)
     socketInstance.on('location_update', (data: any) => {
-      // LOG SOLICITADO: Coordenadas exactas en consola
+      // Log de coordenadas solicitado anteriormente
       console.log(`${data.latitude}, ${data.longitude}`);
-
+      
       const deliveryData: SocketDelivery = {
         repartidorId: data.userId,
         latitud: data.latitude,
@@ -100,7 +118,6 @@ export const useAdminSocket = () => {
       handleUpdateDelivery(deliveryData);
     });
 
-    // Cambio de estado (Conectado/Desconectado)
     socketInstance.on('repartidor_estado_cambiado', (data: { repartidorId: string, estado: any }) => {
       console.log(`🔄 Estado: ${data.repartidorId} -> ${data.estado}`);
       
@@ -108,12 +125,10 @@ export const useAdminSocket = () => {
         const index = prev.findIndex(d => d.repartidorId === data.repartidorId);
         
         if (index !== -1) {
-          // Actualizar estado existente
           const newArr = [...prev];
           newArr[index] = { ...newArr[index], estado: data.estado };
           return newArr;
         } else {
-          // Si es nuevo, agregarlo para que se vea "Conectado"
           return [...prev, {
             repartidorId: data.repartidorId,
             latitud: 0, 
@@ -129,21 +144,15 @@ export const useAdminSocket = () => {
       setStats(newStats);
     });
 
-    socketInstance.on('disconnect', () => {
-      setIsConnected(false);
-      setSocketId('');
-    });
-
-    // Función para actualizar la lista sin duplicados
     const handleUpdateDelivery = (data: SocketDelivery) => {
       setActiveDeliveries(prev => {
         const index = prev.findIndex(d => d.repartidorId === data.repartidorId);
         if (index !== -1) {
           const newArr = [...prev];
-          newArr[index] = { ...newArr[index], ...data }; // Fusionar datos nuevos
+          newArr[index] = { ...newArr[index], ...data };
           return newArr;
         } else {
-          return [...prev, data]; // Agregar nuevo
+          return [...prev, data];
         }
       });
     };
@@ -165,15 +174,20 @@ export const useAdminSocket = () => {
         mensaje: datos.mensaje,
         datos: datos.extraData
       };
+      
+      // Log para verificar exactamente qué sale del front
+      console.log('📤 Emitiendo enviar_notificacion:', payload);
       socket.emit('enviar_notificacion', payload);
       return true;
     }
+    console.warn('⚠️ No se pudo enviar: Socket desconectado');
     return false;
   }, [socket, isConnected]);
 
   return {
+    socket,
     isConnected,
-    activeDeliveries, // <--- ESTA variable contiene las ubicaciones para tu mapa
+    activeDeliveries,
     stats,
     enviarNotificacion,
     socketId,
