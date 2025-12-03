@@ -74,26 +74,23 @@ export default function HomePage() {
   const { orders, assignDelivery, createOrder, updateOrderStatus } = useOrders(); 
   const { deliveries } = useDeliveries(); 
   
-  // SOCKET: Obtenemos datos en tiempo real
   const { activeDeliveries: socketDeliveries, isConnected, enviarNotificacion, socketId, currentRoom } = useAdminSocket();
 
   const [tabIndex, setTabIndex] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [panelOpen, setPanelOpen] = useState(true);
   
-  // Estados de Modales
   const [selectedDriverForModal, setSelectedDriverForModal] = useState<any>(null);
   const [orderToAssign, setOrderToAssign] = useState<any>(null);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<any>(null);
   
-  // Estados de Acción
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
 
-  // 1. FUSIÓN DE DATOS (Socket + BD) CON ORDENAMIENTO
+  // 1. FUSIÓN DE DATOS (Socket + BD) CON FILTRADO DE DESCONECTADOS
   const mappedDeliveries = useMemo(() => {
     // Fallback: Si no hay BD, usamos solo socket
     if (deliveries.length === 0 && socketDeliveries.length > 0) {
@@ -107,8 +104,10 @@ export default function HomePage() {
             vehicleType: 'motorcycle'
         }));
         
-        // Ordenar: Activos primero
-        return fallbackList.sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1));
+        // FILTRAR Y ORDENAR
+        return fallbackList
+            .filter(d => d.isActive) // <--- Solo mostramos activos
+            .sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1));
     }
 
     // Fusión Principal
@@ -121,7 +120,7 @@ export default function HomePage() {
         : defaultLocation;
 
       const isOnline = realLoc 
-        ? (realLoc.estado !== 'desconectado' && realLoc.estado !== 'inactivo') 
+        ? (realLoc.estado === 'conectado' || realLoc.estado === 'activo' || realLoc.estado === 'en_pausa') 
         : false;
 
       return {
@@ -129,19 +128,20 @@ export default function HomePage() {
         name: dbDelivery.nombre,
         location: finalLocation,
         isActive: isOnline,
-        statusText: realLoc ? realLoc.estado : 'desconectado', // Estado exacto para colores
+        statusText: realLoc ? realLoc.estado : 'desconectado', 
         phone: dbDelivery.telefono,
         vehicleType: 'motorcycle', 
         avatarUrl: '' 
       };
     });
 
-    // --- ORDENAMIENTO AUTOMÁTICO ---
-    // Los que están "isActive: true" van primero (-1), los inactivos después (1)
-    return mergedList.sort((a, b) => {
-        if (a.isActive === b.isActive) return 0; // Si el estado es igual, no cambia el orden
-        return a.isActive ? -1 : 1; // Activos arriba
-    });
+    // --- FILTRADO Y ORDENAMIENTO ---
+    return mergedList
+        .filter(d => d.isActive) // <--- ESTO FILTRA LOS DESCONECTADOS DEL MAPA Y LISTA
+        .sort((a, b) => {
+            if (a.isActive === b.isActive) return 0; 
+            return a.isActive ? -1 : 1;
+        });
 
   }, [deliveries, socketDeliveries]);
 
@@ -176,7 +176,6 @@ export default function HomePage() {
     }
   }, [tabIndex, mappedDeliveries, mappedOrders, searchTerm]);
 
-  // FUNCIÓN: Obtener pedidos de un repartidor
   const getDriverOrders = (driverId: string, includeHistory = false) => {
     return orders.filter(o => {
         const assignedId = typeof o.repartidorAsignado === 'object' && o.repartidorAsignado !== null
@@ -198,7 +197,6 @@ export default function HomePage() {
     setSearchTerm("");
   };
 
-  // ASIGNACIÓN
   const handleAssignConfirm = async () => {
       if (!orderToAssign || !selectedDriverId) return;
       try {
@@ -228,7 +226,6 @@ export default function HomePage() {
       }
   };
 
-  // CREAR ORDEN
   const handleCreateOrderSubmit = async (data: any) => {
     try {
         const success = await createOrder(data);
@@ -242,13 +239,10 @@ export default function HomePage() {
     }
   };
 
-  // CAMBIAR ESTATUS
   const handleChangeStatus = async (event: SelectChangeEvent) => {
     if (!selectedOrderForDetails) return;
-    
     const newStatus = event.target.value as 'pendiente' | 'asignado' | 'en_camino' | 'entregado' | 'cancelado';
 
-    // Validación
     if (['asignado', 'en_camino'].includes(newStatus) && !selectedOrderForDetails.repartidorAsignado) {
         setErrorAlert("⚠️ No puedes cambiar a 'En Camino' o 'Asignado' sin asignar un repartidor primero.");
         return; 
@@ -275,23 +269,29 @@ export default function HomePage() {
     });
   };
 
-  // HELPER PARA COLOR DE ESTADO EN LISTA
   const getStatusColor = (statusText: string, isActive: boolean) => {
-      if (statusText === 'en_pausa') return '#ff9800'; // Naranja
-      if (isActive) return '#4caf50'; // Verde
-      return '#bdbdbd'; // Gris
+      if (statusText === 'en_pausa') return '#ff9800'; 
+      if (isActive) return '#4caf50'; 
+      return '#bdbdbd'; 
+  };
+
+  const getStatusLabel = (statusText: string) => {
+     switch (statusText) {
+          case 'en_pausa': return 'En Pausa ⏸️';
+          case 'activo':
+          case 'conectado': return 'Conectado ✅';
+          default: return 'Desconectado ❌';
+     }
   };
 
   return (
     <Box sx={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
       
-      {/* Mapa */}
       <BasicMap 
         deliveries={mappedDeliveries} 
         orders={mappedOrders} 
       />
 
-      {/* Panel Flotante */}
       {panelOpen && (
         <Paper
           elevation={8}
@@ -353,6 +353,14 @@ export default function HomePage() {
                     <CircularProgress size={16}/><Typography variant="caption" color="text.secondary">Conectando al servidor...</Typography>
                  </Box>
             )}
+            
+            {/* Mensaje cuando no hay repartidores conectados */}
+            {isConnected && tabIndex === 0 && filteredList.length === 0 && (
+                <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" p={4} color="text.secondary">
+                    <WifiOffIcon sx={{ fontSize: 40, mb: 1, opacity: 0.5 }} />
+                    <Typography variant="body2">No hay repartidores conectados</Typography>
+                </Box>
+            )}
 
             <List>
               {filteredList.map((item: any) => {
@@ -372,11 +380,10 @@ export default function HomePage() {
                                     {item.name ? item.name.charAt(0).toUpperCase() : "R"}
                                 </Avatar>
                             </Badge>
-                            {/* INDICADOR DE ESTADO (COLOR) */}
                             <Box
                               sx={{
                                 position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: '50%', border: '2px solid white',
-                                bgcolor: getStatusColor(item.statusText, item.isActive) // <--- LÓGICA DE COLOR
+                                bgcolor: getStatusColor(item.statusText, item.isActive)
                               }}
                             />
                           </Box>
@@ -392,10 +399,10 @@ export default function HomePage() {
                                 </Box>
                                 <Typography variant="caption" display="block" 
                                     sx={{ 
-                                        color: item.statusText === 'en_pausa' ? 'warning.main' : (item.isActive ? 'success.main' : 'text.disabled'),
-                                        fontWeight: item.isActive ? 'bold' : 'normal'
+                                        color: getStatusColor(item.statusText, item.isActive) === '#ff9800' ? 'warning.main' : 'success.main',
+                                        fontWeight: 'bold'
                                     }}>
-                                    {item.statusText === 'en_pausa' ? 'En Pausa ⏸️' : (item.isActive ? 'Conectado ✅' : 'Desconectado ❌')}
+                                    {getStatusLabel(item.statusText)}
                                 </Typography>
                             </Box>
                           }
@@ -440,7 +447,7 @@ export default function HomePage() {
         <Button variant="contained" color="primary" onClick={() => setPanelOpen(true)} sx={{ position: 'absolute', top: 20, left: 20, zIndex: 100 }}>Abrir Panel</Button>
       )}
 
-      {/* --- MODALES --- */}
+      {/* MODALES SE MANTIENEN IGUALES... */}
       
       <Dialog open={!!selectedDriverForModal} onClose={() => setSelectedDriverForModal(null)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0a3d35', color: 'white' }}>
