@@ -7,7 +7,7 @@ export const descargarReporteExcel = async (fechaInicio: string, fechaFin: strin
   try {
     const token = localStorage.getItem('token'); 
 
-    const response = await axios.get(`${API_URL}/reportes/encargos/entregados/excel`, {
+    const response = await axios.get(`/reportes/encargos/entregados/excel`, {
       params: {
         fechaInicio,
         fechaFin
