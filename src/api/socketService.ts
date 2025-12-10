@@ -3,13 +3,11 @@ import { io, Socket } from 'socket.io-client';
 
 class SocketService {
   private socket: Socket | null = null;
-  // 1. Detectamos si estamos corriendo en localhost
-  private isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-  // 2. Definimos la URL dinámicamente
-  // - En Local: Usamos la IP directa de tu API (HTTP)
+  
+  // Definimos la URL dinámicamente basada en la variable de entorno
+  // - En Dev: Usamos la IP directa de tu API (HTTP)
   // - En Prod: Usamos '/' para que Nginx haga el túnel seguro (HTTPS)
-  private readonly url = this.isLocal 
+  private readonly url = process.env.REACT_APP_ENV === 'dev'
     ? 'http://152.67.233.117:3000' 
     : '/';
 

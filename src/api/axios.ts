@@ -2,9 +2,10 @@ import axios from 'axios';
 
 // Configuración de la instancia de Axios
 const api = axios.create({
-    // CAMBIO REALIZADO: Apuntando a la IP del VPS en lugar de Render
-    baseURL: '/api', 
-    //baseURL: 'http://152.67.233.117/api', 
+    // Usa la variable de entorno o '/api' por defecto para producción
+    baseURL: process.env.REACT_APP_ENV === 'dev' 
+        ? 'http://152.67.233.117/api' 
+        : '/api',
 
     timeout: 15000,
     headers: {
