@@ -1,13 +1,13 @@
 import axios from 'axios';
 
 // Ajusta esta URL base si tu configuración de entorno es diferente (ej. process.env.REACT_APP_API_URL)
-const API_URL = 'http://152.67.233.117/api'; 
+ 
 
 export const descargarReporteExcel = async (fechaInicio: string, fechaFin: string): Promise<void> => {
   try {
     const token = localStorage.getItem('token'); // Recuperamos el token
 
-    const response = await axios.get(`${API_URL}/reportes/encargos/entregados/excel`, {
+    const response = await axios.get(`/reportes/encargos/entregados/excel`, {
       params: {
         fechaInicio,
         fechaFin
