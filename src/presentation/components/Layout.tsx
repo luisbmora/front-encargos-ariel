@@ -20,14 +20,18 @@ import MenuIcon from '@mui/icons-material/Menu';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import PeopleIcon from '@mui/icons-material/People';
-import RouteIcon from '@mui/icons-material/AltRoute';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import DescriptionIcon from '@mui/icons-material/Description'; // Icono para reportes
+
 import theme from '../../theme/theme';
 import { useAuth } from '../../app/AuthContext';
 import { useNavigation } from '../../app/NavigationContext';
 import { useSocket } from '../../hooks/useSocket';
-import TokenExpiryWarning from './TokenExpiryWarning';
+import TokenExpiryWarning from './TokenExpiryWarning'; // Asumo que este también está en components
+
+// IMPORTACIÓN CORREGIDA: Al estar en la misma carpeta, se usa './'
+import { ReporteModal } from './ReporteModal';
 
 const drawerWidth = 240;
 
@@ -86,6 +90,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   
+  // Estado para controlar la visibilidad del Modal
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  
   const { logout } = useAuth();
   const { currentPage, setCurrentPage } = useNavigation();
   const { isConnected } = useSocket();
@@ -96,7 +103,12 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     { text: 'Inicio', icon: <DashboardIcon />, page: 'dashboard' as const },
     { text: 'Pedidos', icon: <AssignmentIcon />, page: 'orders' as const },
     { text: 'Repartidores', icon: <PeopleIcon />, page: 'deliveries' as const },
-    //{ text: 'Rutas', icon: <RouteIcon />, page: 'routes' as const },
+    // Opción de Reportes Excel que abre el modal
+    { 
+      text: 'Reportes Excel', 
+      icon: <DescriptionIcon />, 
+      action: () => setIsReportModalOpen(true) 
+    },
     { text: 'Cerrar Sesión', icon: <LogoutIcon />, action: logout },
   ];
 
@@ -127,7 +139,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
             <ListItemButton
               onClick={item.action || (() => item.page && setCurrentPage(item.page))}
-              selected={item.page === currentPage}
+              selected={item.page ? item.page === currentPage : false}
               sx={{
                 minHeight: 48,
                 justifyContent: open ? 'initial' : 'center',
@@ -210,6 +222,12 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       </Box>
 
       <TokenExpiryWarning />
+
+      {/* COMPONENTE MODAL */}
+      <ReporteModal 
+        open={isReportModalOpen} 
+        onClose={() => setIsReportModalOpen(false)} 
+      />
     </Box>
   );
 };
