@@ -1,13 +1,13 @@
 import axios from 'axios';
 
-// Ajusta esta URL base si tu configuración de entorno es diferente (ej. process.env.REACT_APP_API_URL)
- 
+// Asegúrate de que esta URL coincida con tu backend
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api'; 
 
 export const descargarReporteExcel = async (fechaInicio: string, fechaFin: string): Promise<void> => {
   try {
-    const token = localStorage.getItem('token'); // Recuperamos el token
+    const token = localStorage.getItem('token'); 
 
-    const response = await axios.get(`/reportes/encargos/entregados/excel`, {
+    const response = await axios.get(`${API_URL}/reportes/encargos/entregados/excel`, {
       params: {
         fechaInicio,
         fechaFin
@@ -15,14 +15,18 @@ export const descargarReporteExcel = async (fechaInicio: string, fechaFin: strin
       headers: {
         'Authorization': `Bearer ${token}`
       },
-      responseType: 'blob' // Vital para descargar archivos binarios
+      responseType: 'blob' // Importante para recibir el archivo binario
     });
 
-    // Crear URL temporal y forzar la descarga
+    // Crear URL temporal
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `reporte_entregas_${fechaInicio}_${fechaFin}.csv`);
+    
+    // --- AQUÍ ESTABA EL ERROR ---
+    // Cambiamos la extensión a .xlsx porque tu backend genera un Excel real, no un CSV
+    link.setAttribute('download', `reporte_entregas_${fechaInicio}_${fechaFin}.xlsx`); 
+    
     document.body.appendChild(link);
     link.click();
     
