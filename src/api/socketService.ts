@@ -7,13 +7,14 @@ class SocketService {
   // Definimos la URL dinámicamente basada en la variable de entorno
   // - En Dev: Usamos la IP directa de tu API (HTTP)
   // - En Prod: Usamos '/' para que Nginx haga el túnel seguro (HTTPS)
-  private readonly url = process.env.REACT_APP_ENV === 'dev'
+  private readonly isLocal = process.env.REACT_APP_ENV === 'dev';
+  private readonly url = this.isLocal
     ? 'http://152.67.233.117:3000' 
     : '/';
 
   connect(): Socket {
     if (!this.socket) {
-      console.log(`🔌 Conectando Socket en modo: ${this.isLocal ? 'LOCAL (Directo)' : 'PRODUCCIÓN (Proxy Nginx)'}`);
+      // console.log(`🔌 Conectando Socket en modo: ${this.isLocal ? 'LOCAL (Directo)' : 'PRODUCCIÓN (Proxy Nginx)'}`);
 
       this.socket = io(this.url, {
         path: '/socket.io/',
@@ -59,6 +60,12 @@ class SocketService {
     }
   }
 
+  subscribeToDeliveryStatusUpdates(callback: (data: any) => void): void {
+    if (this.socket) {
+      this.socket.on('update_delivery_status', callback);
+    }
+  }
+
   subscribeToLocationUpdates(callback: (data: any) => void): void {
     if (this.socket) {
       this.socket.on('location-update', callback);
@@ -81,6 +88,37 @@ class SocketService {
   leaveDeliveryRoom(deliveryId: string): void {
     if (this.socket) {
       this.socket.emit('leave-delivery', deliveryId);
+    }
+  }
+  // === NUEVOS MÉTODOS PARA NOTIFICACIONES ===
+  
+  // 1. Escuchar cuando el servidor envía la notificación (Check Simple)
+  subscribeToNotificationSent(callback: (data: any) => void): void {
+    if (this.socket) {
+      this.socket.on('notificacion_enviada', callback);
+    }
+  }
+
+  // 2. Escuchar cuando el celular confirma recepción (Doble Check - ACK)
+  subscribeToNotificationReceived(callback: (data: { notificacionIds: string[] }) => void): void {
+    if (this.socket) {
+      this.socket.on('notificacion_recibida_admin', callback);
+    }
+  }
+
+  // 3. Escuchar respuesta del repartidor (Aceptado/Rechazado)
+  subscribeToNotificationResponse(callback: (data: any) => void): void {
+    if (this.socket) {
+      this.socket.on('notificacion_respondida', callback);
+    }
+  }
+
+  // Eliminar listeners (importante para evitar duplicados al recargar componentes)
+  unsubscribeFromNotifications(): void {
+    if (this.socket) {
+      this.socket.off('notificacion_enviada');
+      this.socket.off('notificacion_recibida_admin');
+      this.socket.off('notificacion_respondida');
     }
   }
 }

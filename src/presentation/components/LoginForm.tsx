@@ -1,11 +1,13 @@
 // src/presentation/components/LoginForm.tsx
-import { Box, TextField, Button, Typography, Avatar, Link, CircularProgress, Alert } from '@mui/material';
+import { Box, TextField, Button, Typography, Avatar, Link, CircularProgress, Alert, IconButton, InputAdornment } from '@mui/material';
 import theme from '../../theme/theme';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../app/AuthContext';
 import { useState } from 'react';
 import { loginAPI } from '../../api/authApi';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
 type FormData = { email: string; password: string; };
 
@@ -13,6 +15,7 @@ const LoginForm = () => {
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
 
@@ -93,7 +96,7 @@ const LoginForm = () => {
       <TextField
         fullWidth
         label="Contraseña"
-        type="password"
+        type={showPassword ? 'text' : 'password'}
         margin="normal"
         error={!!errors.password}
         helperText={errors.password?.message}
@@ -101,6 +104,20 @@ const LoginForm = () => {
           required: 'La contraseña es requerida',
           minLength: { value: 6, message: 'Mínimo 6 caracteres' },
         })}
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                aria-label="toggle password visibility"
+                onClick={() => setShowPassword(!showPassword)}
+                onMouseDown={(e) => e.preventDefault()}
+                edge="end"
+              >
+                {showPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            </InputAdornment>
+          ),
+        }}
       />
 
       {/* Botón */}

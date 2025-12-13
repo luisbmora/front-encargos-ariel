@@ -27,22 +27,69 @@ const BasicMap: React.FC<BasicMapProps> = ({ deliveries, orders }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [error, setError] = useState<string>("");
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+
+  // Obtener ubicación del usuario
+  useEffect(() => {
+    console.log("🗺️ BasicMap: Obteniendo ubicación del usuario...");
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          console.log("✅ BasicMap: Ubicación obtenida:", location);
+          setUserLocation(location);
+        },
+        (error) => {
+          console.warn("⚠️ BasicMap: Error obteniendo ubicación, usando Guadalajara por defecto");
+          setUserLocation({ lat: 20.659698, lng: -103.349609 }); // Fallback a Guadalajara
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        }
+      );
+    } else {
+      console.warn("⚠️ BasicMap: Geolocalización no soportada");
+      setUserLocation({ lat: 20.659698, lng: -103.349609 });
+    }
+  }, []);
 
   useEffect(() => {
     const initMap = async () => {
+      if (!userLocation) {
+        console.log("⏳ BasicMap: Esperando ubicación del usuario...");
+        return;
+      }
+
       try {
+        const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+        
+        if (!apiKey) {
+          console.error("❌ BasicMap: API Key no configurada");
+          setError("API Key de Google Maps no configurada");
+          return;
+        }
+
+        console.log("🗺️ BasicMap: Inicializando mapa con ubicación:", userLocation);
+
         const loader = new Loader({
-          apiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyArRZ1oMeBMdwpLIB3hssEt_99ceKdzV5s",
+          apiKey,
           version: "weekly",
           libraries: ["places"],
         });
 
         const google = await loader.load();
+        console.log("✅ BasicMap: Google Maps cargado");
 
         if (mapRef.current && !map) {
           const mapInstance = new google.maps.Map(mapRef.current, {
-            center: { lat: 20.659698, lng: -103.349609 }, 
+            center: userLocation, 
             zoom: 13,
             mapTypeControl: false,
             streetViewControl: false,
@@ -68,7 +115,7 @@ const BasicMap: React.FC<BasicMapProps> = ({ deliveries, orders }) => {
     };
 
     initMap();
-  }, [map]);
+  }, [map, userLocation]);
 
   useEffect(() => {
     if (!map || !window.google) return;

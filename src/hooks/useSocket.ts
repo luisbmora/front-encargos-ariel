@@ -44,7 +44,21 @@ export const useOrderUpdates = () => {
       });
     };
 
+    const handleDeliveryStatusUpdate = (data: any) => {
+      console.log('📦 Actualización de estado de entrega:', data);
+      setOrders(prev => {
+        const index = prev.findIndex(order => order._id === data.pedidoId || order.id === data.pedidoId);
+        if (index >= 0) {
+          const updated = [...prev];
+          updated[index] = { ...updated[index], estado: data.estado };
+          return updated;
+        }
+        return prev;
+      });
+    };
+
     socket.subscribeToOrderUpdates(handleOrderUpdate);
+    socket.subscribeToDeliveryStatusUpdates(handleDeliveryStatusUpdate);
 
     return () => {
       // Cleanup si es necesario
@@ -76,4 +90,48 @@ export const useDeliveryTracking = () => {
   }, [socket]);
 
   return Array.from(deliveries.values());
+};
+
+export const useNotificationMonitor = (initialOrders: any[]) => {
+  const [ordersWithStatus, setOrdersWithStatus] = useState<any[]>(initialOrders);
+  const { socket } = useSocket();
+
+  // Sincronizar si cambian los pedidos iniciales (ej: carga de API)
+  useEffect(() => {
+    setOrdersWithStatus(initialOrders);
+  }, [initialOrders]);
+
+  useEffect(() => {
+    // 1. Manejar envío (Servidor -> Socket)
+    const handleSent = (data: any) => {
+      setOrdersWithStatus(prev => prev.map(order => {
+        // Asumiendo que el pedido tiene un campo 'notificacionId' o vinculas por 'id'
+        if (order.notificacionId === data.notificacionId) {
+            return { ...order, notificacionEstado: data.estado };
+        }
+        return order;
+      }));
+    };
+
+    // 2. Manejar recepción (Celular -> Servidor -> Admin)
+    const handleReceived = (data: { notificacionIds: string[] }) => {
+      console.log('📱 Confirmación recibida:', data.notificacionIds);
+      setOrdersWithStatus(prev => prev.map(order => {
+        if (data.notificacionIds.includes(order.notificacionId)) {
+          return { ...order, notificacionEstado: 'RECIBIDA' };
+        }
+        return order;
+      }));
+    };
+
+    // Suscribirse
+    socket.subscribeToNotificationSent(handleSent);
+    socket.subscribeToNotificationReceived(handleReceived);
+
+    return () => {
+      socket.unsubscribeFromNotifications();
+    };
+  }, [socket]);
+
+  return ordersWithStatus;
 };
