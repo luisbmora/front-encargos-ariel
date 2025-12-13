@@ -94,7 +94,7 @@ export default function HomePage() {
   // 2. Escuchar cambios del Socket y actualizar estado local
   useEffect(() => {
     if (latestOrderUpdate) {
-        console.log("🔄 HomePage: Actualizando orden por socket:", latestOrderUpdate);
+        console.log("🔄 HomePage -test: Actualizando orden por socket:", latestOrderUpdate);
         setLocalOrders((prevOrders) => {
             const exists = prevOrders.find(o => o._id === latestOrderUpdate._id);
             if (exists) {
