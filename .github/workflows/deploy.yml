@@ -29,7 +29,7 @@ jobs:
       run: |
         export REACT_APP_API_URL=/api
         export REACT_APP_SOCKET_URL=/
-        export REACT_APP_GOOGLE_MAPS_KEY=PON_AQUI_TU_KEY_REAL
+        export REACT_APP_GOOGLE_MAPS_KEY=AIzaSyArRZ1oMeBMdwpLIB3hssEt_99ceKdzV5s
         npm run build
 
     - name: Desplegar al Servidor (SCP)
