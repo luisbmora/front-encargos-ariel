@@ -8,11 +8,12 @@ import {
   TextField,
   Button,
   Box,
-  Alert,
   FormControlLabel,
   Switch,
-  Typography,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { Delivery, CreateDeliveryRequest } from '../../types/delivery';
 
 interface DeliveryFormProps {
@@ -37,10 +38,16 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
     telefono: '',
     email: '',
     password: '',
-    //activo: true,
+    activo: true,
   });
+  
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Controla si el campo de contraseña debe aparecer en el DOM (Lógica de edición)
   const [isPasswordField, setIsPasswordField] = useState(!isEdit);
+  
+  // Controla si se ven los caracteres de la contraseña (Ojo visible/oculto)
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (delivery) {
@@ -48,8 +55,8 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
         nombre: delivery.nombre,
         telefono: delivery.telefono,
         email: delivery.email,
-        password: '', // No mostramos la contraseña actual por seguridad
-        //activo: delivery.activo,
+        password: '', 
+        activo: delivery.activo !== undefined ? delivery.activo : true,
       });
       setIsPasswordField(false);
     } else {
@@ -58,33 +65,42 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
         telefono: '',
         email: '',
         password: '',
-        //activo: true,
+        activo: true,
       });
       setIsPasswordField(true);
     }
     setErrors({});
+    setShowPassword(false); // Resetear visibilidad al abrir
   }, [delivery, open, isEdit]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Validar Nombre
     if (!formData.nombre.trim()) {
       newErrors.nombre = 'El nombre es requerido';
     }
 
+    // Validar Email (Formato más robusto)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
       newErrors.email = 'El email es requerido';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email inválido';
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Ingrese un formato de email válido (ej: usuario@dominio.com)';
     }
 
+    // Validar Teléfono (Solo números y exactamente 10 dígitos)
     if (!formData.telefono.trim()) {
       newErrors.telefono = 'El teléfono es requerido';
+    } else if (formData.telefono.length !== 10) {
+      newErrors.telefono = 'El teléfono debe tener exactamente 10 dígitos';
     }
 
+    // Validar Contraseña
     if (!isEdit && !formData.password.trim()) {
       newErrors.password = 'La contraseña es requerida';
-    } else if (!isEdit && formData.password.length < 6) {
+    } else if ((!isEdit || (isEdit && formData.password)) && formData.password.length < 6) {
+      // Si es nuevo usuario O si es edición y el usuario escribió algo en el campo
       newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
 
@@ -97,7 +113,7 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
     
     if (!validateForm()) return;
 
-    // Para edición, si no se cambió la contraseña, no la enviamos
+    // Para edición, si no se cambió la contraseña (está vacía), no la enviamos
     const submitData = isEdit && !formData.password 
       ? { ...formData, password: undefined } 
       : formData;
@@ -111,8 +127,20 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
   const handleChange = (field: string) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | any
   ) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    let value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     
+    // Lógica específica para el teléfono
+    if (field === 'telefono') {
+      // 1. Eliminar cualquier caracter que no sea número
+      const numericValue = value.replace(/\D/g, '');
+      
+      // 2. Limitar a 10 caracteres
+      if (numericValue.length > 10) {
+        return; // No actualizamos el estado si excede
+      }
+      value = numericValue;
+    }
+
     setFormData((prev: typeof formData) => ({
       ...prev,
       [field]: value,
@@ -132,6 +160,12 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
     if (!isPasswordField) {
       setFormData((prev: any) => ({ ...prev, password: '' }));
     }
+  };
+
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
+
+  const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
   };
 
   return (
@@ -169,16 +203,21 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
               value={formData.telefono}
               onChange={handleChange('telefono')}
               error={!!errors.telefono}
-              helperText={errors.telefono}
+              helperText={errors.telefono || "Solo números, 10 dígitos"}
               fullWidth
               required
+              inputProps={{ 
+                inputMode: 'numeric', 
+                pattern: '[0-9]*',
+                maxLength: 10 
+              }}
             />
 
             {isEdit && (
               <FormControlLabel
                 control={
                   <Switch
-                    checked={formData.activo}
+                    checked={!!formData.activo}
                     onChange={handleChange('activo')}
                     color="primary"
                   />
@@ -190,13 +229,27 @@ const DeliveryForm: React.FC<DeliveryFormProps> = ({
             {isPasswordField && (
               <TextField
                 label="Contraseña"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={handleChange('password')}
                 error={!!errors.password}
-                helperText={errors.password || (isEdit ? 'Dejar en blanco para mantener la contraseña actual' : 'Mínimo 6 caracteres')}
+                helperText={errors.password || (isEdit ? 'Dejar en blanco para mantener la actual' : 'Mínimo 6 caracteres')}
                 fullWidth
                 required={!isEdit}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={handleClickShowPassword}
+                        onMouseDown={handleMouseDownPassword}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
             )}
 
