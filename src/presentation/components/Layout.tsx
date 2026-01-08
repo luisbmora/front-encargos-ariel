@@ -17,21 +17,22 @@ import {
   styled
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+// import LocalShippingIcon from '@mui/icons-material/LocalShipping'; // Ya no lo usamos
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import PeopleIcon from '@mui/icons-material/People';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import DescriptionIcon from '@mui/icons-material/Description'; // Icono para reportes
+import DescriptionIcon from '@mui/icons-material/Description';
 
 import theme from '../../theme/theme';
 import { useAuth } from '../../app/AuthContext';
 import { useNavigation } from '../../app/NavigationContext';
 import { useSocket } from '../../hooks/useSocket';
-import TokenExpiryWarning from './TokenExpiryWarning'; // Asumo que este también está en components
-
-// IMPORTACIÓN CORREGIDA: Al estar en la misma carpeta, se usa './'
+import TokenExpiryWarning from './TokenExpiryWarning';
 import { ReporteModal } from './ReporteModal';
+
+// 1. IMPORTAR LA IMAGEN AQUÍ
+import logoImage from '../../assets/logo-delivery.svg'; 
 
 const drawerWidth = 240;
 
@@ -90,7 +91,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   
-  // Estado para controlar la visibilidad del Modal
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   
   const { logout } = useAuth();
@@ -103,7 +103,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     { text: 'Inicio', icon: <DashboardIcon />, page: 'dashboard' as const },
     { text: 'Pedidos', icon: <AssignmentIcon />, page: 'orders' as const },
     { text: 'Repartidores', icon: <PeopleIcon />, page: 'deliveries' as const },
-    // Opción de Reportes Excel que abre el modal
     { 
       text: 'Reportes Excel', 
       icon: <DescriptionIcon />, 
@@ -125,7 +124,18 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
         }}>
         {open && (
            <>
-            <LocalShippingIcon sx={{ fontSize: 30, mr: 1, color: theme.palette.secondary.main }} />
+            
+            <Box
+              component="img"
+              src={logoImage}
+              alt="Logo"
+              sx={{
+                width: 40,      
+                height: 40,
+                objectFit: 'contain',
+                mr: 1.5        
+              }}
+            />
             <Typography variant="subtitle1" fontWeight="bold" noWrap>
               Ncargos Ariel
             </Typography>
@@ -223,7 +233,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
 
       <TokenExpiryWarning />
 
-      {/* COMPONENTE MODAL */}
       <ReporteModal 
         open={isReportModalOpen} 
         onClose={() => setIsReportModalOpen(false)} 
