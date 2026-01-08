@@ -8,7 +8,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
 // IMPORTA TU IMAGEN AQUÍ (Asegúrate que el nombre y ruta sean correctos)
-import logoImage from '../../assets/logo-delivery.png'; 
+import logoImage from '../../assets/logo-delivery.svg'; 
 
 type FormData = { email: string; password: string; };
 
